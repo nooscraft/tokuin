@@ -63,12 +63,12 @@ impl Formatter for MarkdownFormatter {
     }
 
     fn format_comparison(&self, results: &[TokenResult]) -> String {
-        let mut output = Vec::new();
-
-        output.push("## Model Comparison".to_string());
-        output.push(String::new());
-        output.push("| Model | Tokens | Input Cost | Output Cost |".to_string());
-        output.push("|-------|--------|------------|-------------|".to_string());
+        let mut output = vec![
+            "## Model Comparison".to_string(),
+            String::new(),
+            "| Model | Tokens | Input Cost | Output Cost |".to_string(),
+            "|-------|--------|------------|-------------|".to_string(),
+        ];
 
         for result in results {
             let input_cost = result

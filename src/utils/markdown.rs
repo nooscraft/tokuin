@@ -90,7 +90,7 @@ mod tests {
     fn test_calculate_savings() {
         let original = "# Title\n\n**Bold** text.";
         let stripped = strip_markdown(original);
-        let savings = calculate_savings(original, stripped);
+        let savings = calculate_savings(original, &stripped);
         assert!(savings > 0);
     }
 }

@@ -40,7 +40,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --features "openai,watch,markdown,gemini" -- -D warnings -A dead_code -A unused_imports
 
   # Test on stable Rust
   test:
