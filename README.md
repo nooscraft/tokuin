@@ -1,7 +1,7 @@
 # 🧮 Tokuin
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/nooscraft/tokuin)
-[![Rust](https://img.shields.io/badge/rust-1.72%2B-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-1.74%2B-orange.svg)](https://www.rust-lang.org/)
 [![Crates.io](https://img.shields.io/crates/v/tokuin.svg)](https://crates.io/crates/tokuin)
 [![Documentation](https://docs.rs/tokuin/badge.svg)](https://docs.rs/tokuin)
 [![CI](https://github.com/nooscraft/tokuin/workflows/CI/badge.svg)](https://github.com/nooscraft/tokuin/actions)

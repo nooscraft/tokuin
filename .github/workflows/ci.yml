@@ -98,7 +98,7 @@ jobs:
         rust:
           - stable
           - beta
-          - "1.72.0"  # MSRV (Minimum Supported Rust Version)
+          - "1.74.0"  # MSRV (Minimum Supported Rust Version)
     steps:
       - uses: actions/checkout@v4
 
