@@ -59,7 +59,15 @@ tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
 
 echo "Fetching latest release metadata for $target..."
-release_json=$(curl -fsSL "$API_URL")
+release_json=$(curl -fsSL \
+  -H "Accept: application/vnd.github+json" \
+  -H "User-Agent: tokuin-installer" \
+  "$API_URL")
+
+if [ -z "$release_json" ]; then
+  echo "Failed to fetch release metadata from GitHub. Please try again later." >&2
+  exit 1
+fi
 
 asset_url=$(echo "$release_json" | "$PYTHON_BIN" - "$target" <<'PY'
 import json
