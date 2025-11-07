@@ -2,8 +2,6 @@
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/nooscraft/tokuin)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
-[![Crates.io](https://img.shields.io/crates/v/tokuin.svg)](https://crates.io/crates/tokuin)
-[![Documentation](https://docs.rs/tokuin/badge.svg)](https://docs.rs/tokuin)
 [![CI](https://github.com/nooscraft/tokuin/workflows/CI/badge.svg)](https://github.com/nooscraft/tokuin/actions)
 
 A fast, CLI-based tool to estimate **token usage** and **API cost** for prompts targeting various LLM providers (OpenAI, Claude, Mistral, etc.). Built in Rust for performance, portability, and safety.
@@ -392,6 +390,8 @@ If you need to support an older Rust version, you may need to pin dependencies t
 ## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+> Vibe coding welcome — if you collaborate with an AI pair programmer, skim `AGENTS.md` for a quick project brief and mention the session in your PR so everyone can follow the flow.
 
 ### Adding New Models
 

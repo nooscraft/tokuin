@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing! This guide will help you get started.
 
+> Quick orientation? Skim `AGENTS.md` for an agent-friendly project brief before you dive in.
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -15,12 +17,12 @@ Thank you for your interest in contributing! This guide will help you get starte
 1. **Fork the repository** on GitHub
 2. **Clone your fork**:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/prompt-tokens.git
-   cd prompt-tokens
+   git clone https://github.com/YOUR_USERNAME/tokuin.git
+   cd tokuin
    ```
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/ORG/prompt-tokens.git
+   git remote add upstream https://github.com/nooscraft/tokuin.git
    ```
 4. **Install dependencies**:
    ```bash
@@ -30,6 +32,13 @@ Thank you for your interest in contributing! This guide will help you get starte
    ```bash
    cargo test
    ```
+
+### AI Agents & Vibe Coding
+
+- We love seeing creativity through "vibe coding" sessions. If you are pairing with AI tools (Cursor, Copilot, Claude, etc.), please capture the intent of the session in your PR description so others can follow the flow.
+- Before you start, skim `AGENTS.md` for a condensed project briefing tailored to AI editors and pair-programming assistants. It highlights coding conventions, feature flags, and project history to keep vibes aligned with the roadmap.
+- When using an AI editor, prefer small commits with clear messages so reviewers can trace automated changes. Mention which agent(s) were involved and any manual tweaks you applied.
+- If your session produces follow-up ideas or TODOs, open issues or leave PR comments so the next contributor can pick up the thread.
 
 ## 📋 How to Contribute
 
@@ -139,7 +148,7 @@ mod tests {
 
 ### Rust Best Practices
 
-This project follows comprehensive Rust best practices. **Please read the [Rust Best Practices section](../OPEN_SOURCE_PLAN.md#-rust-best-practices) in the Open Source Plan** for detailed guidelines.
+This project follows comprehensive Rust best practices. **Please read the Rust guidance in `AGENTS.md` and the shared repository rules (`.cursor/rules/clean-code.mdc`) for detailed expectations.**
 
 ### Quick Reference
 
