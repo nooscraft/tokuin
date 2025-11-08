@@ -1014,3 +1014,213 @@ impl From<Command> for EstimateArgs {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn parse_legacy_estimate_arguments() {
+        let cli = Cli::try_parse_from([
+            "tokuin",
+            "--model",
+            "gpt-4",
+            "--price",
+            "--format",
+            "json",
+            "hello world",
+        ])
+        .expect("CLI args should parse");
+
+        assert!(cli.command.is_none(), "legacy usage keeps flat args");
+        assert_eq!(cli.model.as_deref(), Some("gpt-4"));
+        assert_eq!(cli.input.as_deref(), Some("hello world"));
+        assert!(cli.price);
+
+        match cli.format {
+            OutputFormat::Json => {}
+            other => panic!("expected JSON format, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_estimate_subcommand_arguments() {
+        let cli = Cli::try_parse_from([
+            "tokuin",
+            "estimate",
+            "--model",
+            "gpt-4o-mini",
+            "--compare",
+            "gpt-4-turbo",
+            "--compare",
+            "gpt-3.5-turbo",
+            "--breakdown",
+            "prompt.txt",
+        ])
+        .expect("subcommand args should parse");
+
+        let command = cli.command.expect("estimate subcommand expected");
+        match command {
+            Command::Estimate {
+                input,
+                model,
+                compare,
+                breakdown,
+                format,
+                price,
+                #[cfg(feature = "markdown")]
+                    minify: _,
+                diff,
+                #[cfg(feature = "watch")]
+                    watch: _,
+            } => {
+                assert_eq!(input.as_deref(), Some("prompt.txt"));
+                assert_eq!(model.as_deref(), Some("gpt-4o-mini"));
+                assert_eq!(compare, vec!["gpt-4-turbo", "gpt-3.5-turbo"]);
+                assert!(breakdown);
+                assert!(!price);
+                assert!(diff.is_none());
+                match format {
+                    OutputFormat::Text => {}
+                    other => panic!("expected text format default, got {:?}", other),
+                }
+            }
+            #[allow(unreachable_patterns)]
+            _ => panic!("unexpected command variant"),
+        }
+    }
+
+    #[cfg(feature = "load-test")]
+    mod load_test_cli {
+        use super::*;
+
+        #[test]
+        fn parse_load_test_arguments_with_defaults() {
+            let cli = Cli::try_parse_from([
+                "tokuin",
+                "load-test",
+                "--model",
+                "openai/gpt-4",
+                "--runs",
+                "5",
+                "--concurrency",
+                "2",
+                "--api-key",
+                "sk-test",
+                "--dry-run",
+            ])
+            .expect("load-test args should parse");
+
+            let command = cli.command.expect("load-test subcommand expected");
+            match command {
+                Command::LoadTest {
+                    model,
+                    endpoint,
+                    api_key,
+                    openai_api_key,
+                    anthropic_api_key,
+                    openrouter_api_key,
+                    concurrency,
+                    runs,
+                    prompt_file,
+                    think_time,
+                    retry,
+                    output_format,
+                    dry_run,
+                    max_cost,
+                    estimate_cost,
+                } => {
+                    assert_eq!(model, "openai/gpt-4");
+                    assert!(endpoint.is_none());
+                    assert_eq!(api_key.as_deref(), Some("sk-test"));
+                    assert!(openai_api_key.is_none());
+                    assert!(anthropic_api_key.is_none());
+                    assert!(openrouter_api_key.is_none());
+                    assert_eq!(concurrency, 2);
+                    assert_eq!(runs, 5);
+                    assert!(prompt_file.is_none());
+                    assert!(think_time.is_none());
+                    assert_eq!(retry, 3, "default retry should be 3");
+                    assert!(dry_run, "flag should enable dry-run mode");
+                    assert!(max_cost.is_none());
+                    assert!(!estimate_cost);
+
+                    match output_format {
+                        LoadTestOutputFormat::Text => {}
+                        other => panic!("expected text output, got {:?}", other),
+                    }
+                }
+                #[allow(unreachable_patterns)]
+                _ => panic!("unexpected command variant"),
+            }
+        }
+
+        #[test]
+        fn parse_load_test_arguments_with_overrides() {
+            let cli = Cli::try_parse_from([
+                "tokuin",
+                "load-test",
+                "--model",
+                "openrouter/anthropic-sonnet",
+                "--runs",
+                "10",
+                "--concurrency",
+                "4",
+                "--openrouter-api-key",
+                "sk-or",
+                "--think-time",
+                "250-500ms",
+                "--retry",
+                "5",
+                "--output-format",
+                "json",
+                "--estimate-cost",
+            ])
+            .expect("load-test args should parse with overrides");
+
+            let command = cli.command.expect("load-test subcommand expected");
+            match command {
+                Command::LoadTest {
+                    model,
+                    endpoint,
+                    api_key,
+                    openai_api_key,
+                    anthropic_api_key,
+                    openrouter_api_key,
+                    concurrency,
+                    runs,
+                    prompt_file,
+                    think_time,
+                    retry,
+                    output_format,
+                    dry_run,
+                    max_cost,
+                    estimate_cost,
+                } => {
+                    assert_eq!(model, "openrouter/anthropic-sonnet");
+                    assert!(endpoint.is_none());
+                    assert!(api_key.is_none());
+                    assert!(openai_api_key.is_none());
+                    assert!(anthropic_api_key.is_none());
+                    assert_eq!(openrouter_api_key.as_deref(), Some("sk-or"));
+                    assert_eq!(concurrency, 4);
+                    assert_eq!(runs, 10);
+                    assert!(prompt_file.is_none());
+                    assert_eq!(think_time.as_deref(), Some("250-500ms"));
+                    assert_eq!(retry, 5);
+                    assert!(!dry_run);
+                    assert!(max_cost.is_none());
+                    assert!(estimate_cost);
+
+                    match output_format {
+                        LoadTestOutputFormat::Json => {}
+                        other => panic!("expected JSON output, got {:?}", other),
+                    }
+                }
+                #[allow(unreachable_patterns)]
+                _ => panic!("unexpected command variant"),
+            }
+        }
+    }
+}

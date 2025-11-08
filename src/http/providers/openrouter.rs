@@ -171,6 +171,8 @@ impl LlmClient for OpenRouterClient {
 #[cfg(feature = "load-test")]
 mod tests {
     use super::*;
+    use httpmock::prelude::*;
+    use serde_json::json;
     use std::time::Duration;
 
     #[test]
@@ -201,5 +203,66 @@ mod tests {
         };
         let client = OpenRouterClient::new(config).unwrap();
         assert_eq!(client.provider_name(), "openrouter");
+    }
+
+    #[tokio::test]
+    async fn send_request_includes_required_headers_and_payload() {
+        let server = MockServer::start_async().await;
+        let path = "/api/v1/chat/completions";
+
+        let mock = server
+            .mock_async(|when, then| {
+                when.method(POST)
+                    .path(path)
+                    .header("Authorization", "Bearer or-key")
+                    .header("Content-Type", "application/json")
+                    .header("HTTP-Referer", "https://example.com")
+                    .header("X-Title", "Custom Title")
+                    .json_body(json!({
+                        "model": "openrouter/llama",
+                        "messages": [
+                            { "role": "user", "content": "load test" }
+                        ],
+                        "temperature": 0.7
+                    }));
+
+                then.status(200)
+                    .json_body(json!({
+                        "choices": [
+                            { "message": { "content": "ack" } }
+                        ],
+                        "usage": {
+                            "prompt_tokens": 11,
+                            "completion_tokens": 3,
+                            "total_tokens": 14
+                        },
+                        "model": "openrouter/llama"
+                    }));
+            })
+            .await;
+
+        let config = ClientConfig {
+            endpoint: format!("{}{}", server.base_url(), path),
+            api_key: "or-key".to_string(),
+            timeout: Duration::from_secs(30),
+            headers: vec![
+                ("HTTP-Referer".into(), "https://example.com".into()),
+                ("X-Title".into(), "Custom Title".into()),
+            ],
+        };
+
+        let client = OpenRouterClient::new(config).expect("client initialization");
+        let response = client
+            .send_request("load test", "openrouter/llama")
+            .await
+            .expect("request should succeed");
+
+        assert_eq!(response.content, "ack");
+        assert_eq!(response.input_tokens, Some(11));
+        assert_eq!(response.output_tokens, Some(3));
+        assert_eq!(response.total_tokens, Some(14));
+        assert_eq!(response.model, "openrouter/llama");
+
+        mock.assert_async().await;
     }
 }

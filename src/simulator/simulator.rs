@@ -231,3 +231,127 @@ impl Simulator {
         }
     }
 }
+
+#[cfg(all(test, feature = "load-test"))]
+mod tests {
+    use super::*;
+    use crate::error::AppError;
+    use crate::http::client::LlmResponse;
+    use async_trait::async_trait;
+    use std::collections::VecDeque;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    struct MockClient {
+        responses: Mutex<VecDeque<Result<LlmResponse, AppError>>>,
+        call_count: AtomicUsize,
+    }
+
+    impl MockClient {
+        fn new(responses: Vec<Result<LlmResponse, AppError>>) -> Self {
+            Self {
+                responses: Mutex::new(VecDeque::from(responses)),
+                call_count: AtomicUsize::new(0),
+            }
+        }
+
+        fn calls(&self) -> usize {
+            self.call_count.load(Ordering::SeqCst)
+        }
+    }
+
+    #[async_trait]
+    impl LlmClient for MockClient {
+        async fn send_request(&self, _prompt: &str, _model: &str) -> Result<LlmResponse, AppError> {
+            self.call_count.fetch_add(1, Ordering::SeqCst);
+            let mut guard = self.responses.lock().expect("responses mutex poisoned");
+            guard
+                .pop_front()
+                .unwrap_or_else(|| Err(AppError::Api("no response available".into())))
+        }
+
+        fn provider_name(&self) -> &str {
+            "mock"
+        }
+    }
+
+    #[tokio::test]
+    async fn run_respects_dry_run_mode() {
+        let mut config = SimulatorConfig::new(2, 3);
+        config.dry_run = true;
+        config.retry = 0;
+        let simulator = Simulator::new(config);
+
+        let client = Arc::new(MockClient::new(Vec::new()));
+
+        let results = simulator
+            .run(client.clone(), "test prompt", "mock-model")
+            .await
+            .expect("dry run should not fail");
+
+        assert_eq!(results.len(), 3);
+        assert_eq!(client.calls(), 0, "dry run must avoid network calls");
+
+        for result in results {
+            assert!(result.success);
+            assert_eq!(result.content.as_deref(), Some("(dry run)"));
+            assert!(result.error.is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn run_handles_retries_and_failures() {
+        let responses = vec![
+            Ok(LlmResponse {
+                content: "ok-1".into(),
+                input_tokens: Some(30),
+                output_tokens: Some(12),
+                total_tokens: Some(42),
+                model: "mock".into(),
+            }),
+            Err(AppError::Api("rate limited".into())),
+            Ok(LlmResponse {
+                content: "ok-2".into(),
+                input_tokens: Some(25),
+                output_tokens: Some(6),
+                total_tokens: Some(31),
+                model: "mock".into(),
+            }),
+            Err(AppError::Api("transient error".into())),
+            Err(AppError::Api("persistent failure".into())),
+        ];
+
+        let client = Arc::new(MockClient::new(responses));
+
+        let mut config = SimulatorConfig::new(1, 3);
+        config.retry = 1;
+        config.dry_run = false;
+        config.think_time = None;
+
+        let simulator = Simulator::new(config);
+
+        let results = simulator
+            .run(client.clone(), "prompt", "mock-model")
+            .await
+            .expect("simulation should complete");
+
+        assert_eq!(results.len(), 3);
+        assert_eq!(client.calls(), 5, "should perform retries when configured");
+
+        assert!(results[0].success);
+        assert_eq!(results[0].content.as_deref(), Some("ok-1"));
+        assert!(results[0].error.is_none());
+
+        assert!(results[1].success, "second request should succeed after retry");
+        assert_eq!(results[1].content.as_deref(), Some("ok-2"));
+
+        assert!(
+            !results[2].success,
+            "third request should fail after exhausting retries"
+        );
+        assert_eq!(
+            results[2].error.as_deref(),
+            Some("API error: persistent failure")
+        );
+    }
+}

@@ -164,6 +164,8 @@ impl LlmClient for OpenAIClient {
 #[cfg(feature = "load-test")]
 mod tests {
     use super::*;
+    use httpmock::prelude::*;
+    use serde_json::json;
     use std::time::Duration;
 
     #[test]
@@ -194,5 +196,62 @@ mod tests {
         };
         let client = OpenAIClient::new(config).unwrap();
         assert_eq!(client.provider_name(), "openai");
+    }
+
+    #[tokio::test]
+    async fn send_request_posts_expected_payload_and_headers() {
+        let server = MockServer::start_async().await;
+        let path = "/v1/chat/completions";
+
+        let mock = server
+            .mock_async(|when, then| {
+                when.method(POST)
+                    .path(path)
+                    .header("Authorization", "Bearer test-key")
+                    .header("Content-Type", "application/json")
+                    .header("X-Custom-Header", "custom-value")
+                    .json_body(json!({
+                        "model": "gpt-4o-mini",
+                        "messages": [
+                            { "role": "user", "content": "ping" }
+                        ],
+                        "temperature": 0.7
+                    }));
+
+                then.status(200)
+                    .json_body(json!({
+                        "choices": [
+                            { "message": { "content": "pong" } }
+                        ],
+                        "usage": {
+                            "prompt_tokens": 5,
+                            "completion_tokens": 7,
+                            "total_tokens": 12
+                        },
+                        "model": "gpt-4o-mini"
+                    }));
+            })
+            .await;
+
+        let config = ClientConfig {
+            endpoint: format!("{}{}", server.base_url(), path),
+            api_key: "test-key".to_string(),
+            timeout: Duration::from_secs(30),
+            headers: vec![("X-Custom-Header".into(), "custom-value".into())],
+        };
+
+        let client = OpenAIClient::new(config).expect("client initialization");
+        let response = client
+            .send_request("ping", "gpt-4o-mini")
+            .await
+            .expect("request should succeed");
+
+        assert_eq!(response.content, "pong");
+        assert_eq!(response.input_tokens, Some(5));
+        assert_eq!(response.output_tokens, Some(7));
+        assert_eq!(response.total_tokens, Some(12));
+        assert_eq!(response.model, "gpt-4o-mini");
+
+        mock.assert_async().await;
     }
 }
