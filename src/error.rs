@@ -3,6 +3,7 @@ use thiserror::Error;
 
 /// Errors that can occur during tokenization.
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum TokenizerError {
     #[error("Failed to initialize tokenizer: {0}")]
     InitializationFailed(String),
@@ -26,6 +27,7 @@ pub enum TokenizerError {
 
 /// Errors related to model registry and configuration.
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum ModelError {
     #[error("Model not found: {model}")]
     ModelNotFound { model: String },
@@ -42,6 +44,7 @@ pub enum ModelError {
 
 /// Errors that can occur during parsing.
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum ParseError {
     #[error("Invalid JSON: {0}")]
     InvalidJson(#[from] serde_json::Error),
@@ -86,4 +89,44 @@ pub enum AppError {
     #[cfg(feature = "load-test")]
     #[error("JSON serialization error: {0}")]
     Json(#[from] serde_json::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    #[test]
+    fn tokenizer_error_variants_construct() {
+        let _ = TokenizerError::InitializationFailed("init failed".into());
+        let _ = TokenizerError::UnsupportedModel {
+            model: "unknown-model".into(),
+        };
+        let _ = TokenizerError::InvalidInput("bad input".into());
+        let _ = TokenizerError::EncodingFailed("encode failure".into());
+        let _ = TokenizerError::DecodingFailed("decode failure".into());
+        #[cfg(feature = "openai")]
+        {
+            let _ = TokenizerError::OpenAI("openai failure".into());
+        }
+    }
+
+    #[test]
+    fn model_error_variants_construct() {
+        let _ = ModelError::ModelNotFound {
+            model: "missing".into(),
+        };
+        let _ = ModelError::ConfigLoadFailed("load failure".into());
+        let _ = ModelError::InvalidPricing("pricing issue".into());
+    }
+
+    #[test]
+    fn parse_error_variants_construct() {
+        let json_err = serde_json::from_str::<Value>("invalid").unwrap_err();
+        let _ = ParseError::InvalidJson(json_err);
+        let _ = ParseError::InvalidFormat("bad format".into());
+        let _ = ParseError::MissingField {
+            field: "field".into(),
+        };
+    }
 }

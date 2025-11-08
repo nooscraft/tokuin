@@ -12,6 +12,7 @@ use std::collections::HashMap;
 
 /// Information about a model.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ModelInfo {
     /// The provider name (e.g., "openai", "anthropic").
     pub provider: String,
@@ -44,6 +45,7 @@ impl ModelRegistry {
     }
 
     /// Get information about a model.
+    #[allow(dead_code)]
     pub fn get_model_info(&self, model_name: &str) -> Option<&ModelInfo> {
         // Try direct lookup first
         if let Some(info) = self.models.get(model_name) {
@@ -173,6 +175,7 @@ impl ModelRegistry {
     }
 
     /// List all registered models.
+    #[allow(dead_code)]
     pub fn list_models(&self) -> Vec<&ModelInfo> {
         self.models.values().collect()
     }
@@ -203,6 +206,9 @@ mod tests {
         assert!(info.is_some());
         if let Some(info) = info {
             assert_eq!(info.provider, "openai");
+            assert_eq!(info.model, "gpt-4");
+            assert_eq!(info.input_price, Some(0.03));
+            assert_eq!(info.output_price, Some(0.06));
         }
     }
 

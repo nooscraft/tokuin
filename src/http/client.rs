@@ -39,6 +39,7 @@ pub trait LlmClient: Send + Sync {
     async fn send_request(&self, prompt: &str, model: &str) -> Result<LlmResponse, AppError>;
 
     /// Get the provider name.
+    #[allow(dead_code)]
     fn provider_name(&self) -> &str;
 }
 

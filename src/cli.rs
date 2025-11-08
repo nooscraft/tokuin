@@ -360,7 +360,9 @@ impl Cli {
         let mut results = Vec::new();
         for model_name in &models {
             let tokenizer = registry.get_tokenizer(model_name)?;
-            let result = Self::count_tokens(&*tokenizer, &messages, model_name, breakdown, price)?;
+            let tokenizer_name = tokenizer.name().to_string();
+            let result =
+                Self::count_tokens(&*tokenizer, &messages, &tokenizer_name, breakdown, price)?;
             results.push(result);
         }
 
@@ -561,6 +563,8 @@ impl Cli {
             .filter_map(|r| if r.success { Some(r.latency_ms) } else { None })
             .collect();
 
+        let total_tokens_reported: usize = results.iter().filter_map(|r| r.total_tokens).sum();
+
         let avg_latency = if !latencies.is_empty() {
             latencies.iter().sum::<u64>() as f64 / latencies.len() as f64
         } else {
@@ -593,6 +597,26 @@ impl Cli {
                 println!("  Average: {:.2}", avg_latency);
                 println!("  p50: {}", p50);
                 println!("  p95: {}", p95);
+                if total_tokens_reported > 0 {
+                    println!("  Total tokens reported: {}", total_tokens_reported);
+                }
+
+                if let Some(sample) = results
+                    .iter()
+                    .find(|r| r.success)
+                    .and_then(|r| r.content.as_ref())
+                {
+                    let preview = sample.chars().take(80).collect::<String>();
+                    println!("  Example response: {}", preview);
+                }
+
+                if let Some(err) = results
+                    .iter()
+                    .find(|r| !r.success)
+                    .and_then(|r| r.error.as_ref())
+                {
+                    println!("  Last error: {}", err);
+                }
 
                 if estimate_cost {
                     // Calculate estimated cost using tokenizer

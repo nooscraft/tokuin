@@ -7,6 +7,7 @@ use crate::http::client::{ClientConfig, LlmClient, LlmResponse};
 
 /// Anthropic API client.
 #[cfg(feature = "load-test")]
+#[allow(dead_code)]
 pub struct AnthropicClient {
     _config: ClientConfig,
 }
@@ -14,6 +15,7 @@ pub struct AnthropicClient {
 #[cfg(feature = "load-test")]
 impl AnthropicClient {
     /// Create a new Anthropic client.
+    #[allow(dead_code)]
     pub fn new(_config: ClientConfig) -> Result<Self, AppError> {
         Err(AppError::Config(
             "Anthropic client not yet implemented".to_string(),
@@ -32,5 +34,28 @@ impl LlmClient for AnthropicClient {
 
     fn provider_name(&self) -> &str {
         "anthropic"
+    }
+}
+
+#[cfg(all(test, feature = "load-test"))]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn anthropic_client_stub_returns_error() {
+        let config = ClientConfig {
+            endpoint: String::new(),
+            api_key: "test".into(),
+            timeout: Duration::from_secs(30),
+            headers: Vec::new(),
+        };
+
+        let client = AnthropicClient::new(config.clone());
+        assert!(client.is_err());
+
+        let stub = AnthropicClient { _config: config };
+        let result = stub.send_request("prompt", "model").await;
+        assert!(matches!(result, Err(AppError::Config(_))));
     }
 }

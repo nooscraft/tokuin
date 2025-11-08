@@ -34,6 +34,7 @@ pub trait Tokenizer: Send + Sync {
     /// # Errors
     ///
     /// Returns `TokenizerError` if the tokens cannot be decoded.
+    #[allow(dead_code)]
     fn decode(&self, tokens: &[usize]) -> Result<String, TokenizerError>;
 
     /// Count tokens in text (optimized path).

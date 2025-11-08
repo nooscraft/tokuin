@@ -75,6 +75,7 @@ impl PricingConfig {
     /// # Returns
     ///
     /// The pricing for the model, or `None` if not found.
+    #[allow(dead_code)]
     pub fn get_pricing(&self, provider: &str, model: &str) -> Option<&ModelPricing> {
         self.providers.get(provider)?.models.get(model)
     }
@@ -88,6 +89,7 @@ impl PricingConfig {
     /// # Errors
     ///
     /// Returns an error if the file cannot be read or parsed.
+    #[allow(dead_code)]
     pub fn from_file<P: AsRef<std::path::Path>>(
         path: P,
     ) -> Result<Self, Box<dyn std::error::Error>> {
@@ -123,5 +125,28 @@ mod tests {
         let config = PricingConfig::new();
         let pricing = config.get_pricing("nonexistent", "model");
         assert!(pricing.is_none());
+    }
+
+    #[test]
+    fn test_from_file() {
+        let mut temp = tempfile::NamedTempFile::new().expect("create temp file");
+        let content = r#"
+            [openai]
+            [openai.gpt-4]
+            input = 0.02
+            output = 0.04
+        "#;
+        use std::io::Write;
+        temp.write_all(content.as_bytes())
+            .expect("write pricing file");
+
+        let config =
+            PricingConfig::from_file(temp.path()).expect("load pricing config from temp file");
+        let pricing = config.get_pricing("openai", "gpt-4");
+        assert!(pricing.is_some());
+        if let Some(p) = pricing {
+            assert_eq!(p.input, 0.02);
+            assert_eq!(p.output, 0.04);
+        }
     }
 }
