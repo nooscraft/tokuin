@@ -50,6 +50,10 @@ pub enum LlmClientEnum {
     OpenAI(crate::http::providers::openai::OpenAIClient),
     #[cfg(feature = "load-test")]
     OpenRouter(crate::http::providers::openrouter::OpenRouterClient),
+    #[cfg(feature = "load-test")]
+    Anthropic(crate::http::providers::anthropic::AnthropicClient),
+    #[cfg(feature = "load-test")]
+    Generic(crate::http::providers::generic::GenericClient),
 }
 
 #[cfg(feature = "load-test")]
@@ -59,6 +63,8 @@ impl LlmClient for LlmClientEnum {
         match self {
             LlmClientEnum::OpenAI(client) => client.send_request(prompt, model).await,
             LlmClientEnum::OpenRouter(client) => client.send_request(prompt, model).await,
+            LlmClientEnum::Anthropic(client) => client.send_request(prompt, model).await,
+            LlmClientEnum::Generic(client) => client.send_request(prompt, model).await,
         }
     }
 
@@ -66,6 +72,8 @@ impl LlmClient for LlmClientEnum {
         match self {
             LlmClientEnum::OpenAI(client) => client.provider_name(),
             LlmClientEnum::OpenRouter(client) => client.provider_name(),
+            LlmClientEnum::Anthropic(client) => client.provider_name(),
+            LlmClientEnum::Generic(client) => client.provider_name(),
         }
     }
 }

@@ -136,6 +136,10 @@ pub enum Command {
         #[arg(long)]
         openrouter_api_key: Option<String>,
 
+        /// Target provider (defaults to automatic detection)
+        #[arg(long, value_enum)]
+        provider: Option<Provider>,
+
         /// Number of concurrent requests
         #[arg(short, long, default_value = "10")]
         concurrency: usize,
@@ -202,6 +206,28 @@ pub enum LoadTestOutputFormat {
     Markdown,
 }
 
+/// Supported LLM providers for load testing.
+#[cfg(feature = "load-test")]
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+pub enum Provider {
+    Openai,
+    Openrouter,
+    Anthropic,
+    Generic,
+}
+
+#[cfg(feature = "load-test")]
+impl Provider {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Provider::Openai => "openai",
+            Provider::Openrouter => "openrouter",
+            Provider::Anthropic => "anthropic",
+            Provider::Generic => "generic",
+        }
+    }
+}
+
 impl Cli {
     /// Execute the CLI command.
     pub fn run(self) -> Result<(), AppError> {
@@ -247,6 +273,7 @@ impl Cli {
                 openai_api_key,
                 anthropic_api_key,
                 openrouter_api_key,
+                provider,
                 concurrency,
                 runs,
                 prompt_file,
@@ -264,6 +291,7 @@ impl Cli {
                     openai_api_key,
                     anthropic_api_key,
                     openrouter_api_key,
+                    provider,
                     concurrency,
                     runs,
                     prompt_file,
@@ -387,6 +415,8 @@ impl Cli {
     #[cfg(feature = "load-test")]
     fn run_load_test(args: LoadTestArgs) -> Result<(), AppError> {
         use crate::http::client::ClientConfig;
+        use crate::http::providers::anthropic::AnthropicClient;
+        use crate::http::providers::generic::GenericClient;
         use crate::http::providers::openai::OpenAIClient;
         use crate::http::providers::openrouter::OpenRouterClient;
         use crate::simulator::config::SimulatorConfig;
@@ -394,56 +424,9 @@ impl Cli {
         use std::sync::Arc;
         use std::time::Duration;
 
-        // Determine API key and provider (check environment variables first, then CLI args)
-        let (api_key, provider) = if let Some(key) = args
-            .openrouter_api_key
-            .clone()
-            .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
-        {
-            (key, "openrouter")
-        } else if let Some(key) = args
-            .openai_api_key
-            .clone()
-            .or_else(|| std::env::var("OPENAI_API_KEY").ok())
-        {
-            (key, "openai")
-        } else if let Some(key) = args
-            .anthropic_api_key
-            .clone()
-            .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
-        {
-            (key, "anthropic")
-        } else if let Some(key) = args
-            .api_key
-            .clone()
-            .or_else(|| std::env::var("API_KEY").ok())
-        {
-            // Generic API key - try to detect provider from model name or endpoint
-            let detected_provider =
-                if args.model.contains("openai/") || args.model.starts_with("gpt-") {
-                    "openai"
-                } else if args.model.contains("anthropic/") || args.model.starts_with("claude-") {
-                    "anthropic"
-                } else if args
-                    .endpoint
-                    .as_ref()
-                    .map(|e| e.contains("openrouter"))
-                    .unwrap_or(false)
-                {
-                    "openrouter"
-                } else {
-                    "openai" // Default to OpenAI for backward compatibility
-                };
-            (key, detected_provider)
-        } else {
-            if !args.dry_run {
-                return Err(AppError::Config(
-                    "API key required. Use --openrouter-api-key/--openai-api-key/--anthropic-api-key, set OPENROUTER_API_KEY/OPENAI_API_KEY/ANTHROPIC_API_KEY, or provide --api-key with a matching model prefix (e.g. openai/gpt-4)."
-                        .to_string(),
-                ));
-            }
-            ("dummy-key-for-dry-run".to_string(), "openai")
-        };
+        let provider = args.resolve_provider();
+
+        let api_key = Cli::resolve_api_key(&args, &provider)?;
 
         // Get prompt
         let prompt = if let Some(ref prompt_file) = args.prompt_file {
@@ -481,6 +464,12 @@ impl Cli {
         let model = args.model.clone();
         let estimate_cost = args.estimate_cost;
 
+        if provider == Provider::Generic && endpoint.is_empty() && !args.dry_run {
+            return Err(AppError::Config(
+                "Generic provider requires --endpoint to be specified".to_string(),
+            ));
+        }
+
         let client_config = ClientConfig {
             endpoint,
             api_key: api_key.clone(),
@@ -491,30 +480,33 @@ impl Cli {
         // Create client based on detected provider
         use crate::http::client::LlmClientEnum;
         let client = match provider {
-            "openrouter" => Arc::new(LlmClientEnum::OpenRouter(OpenRouterClient::new(
+            Provider::Openrouter => Arc::new(LlmClientEnum::OpenRouter(OpenRouterClient::new(
                 client_config,
             )?)),
-            "openai" => Arc::new(LlmClientEnum::OpenAI(OpenAIClient::new(client_config)?)),
-            "anthropic" => {
-                // Anthropic not yet implemented, fall back to error
-                return Err(AppError::Config(
-                    "Anthropic client not yet implemented. Use OpenAI or OpenRouter.".to_string(),
-                ));
+            Provider::Openai => Arc::new(LlmClientEnum::OpenAI(OpenAIClient::new(client_config)?)),
+            Provider::Anthropic => Arc::new(LlmClientEnum::Anthropic(AnthropicClient::new(
+                client_config,
+            )?)),
+            Provider::Generic => {
+                Arc::new(LlmClientEnum::Generic(GenericClient::new(client_config)?))
             }
-            _ => Arc::new(LlmClientEnum::OpenAI(OpenAIClient::new(client_config)?)), // Default to OpenAI
         };
 
-        // Run simulator
-        let simulator = Simulator::new(sim_config);
-
         if args.dry_run {
-            eprintln!("Dry run mode: No API calls will be made");
+            eprintln!(
+                "Dry run mode: No API calls will be made (provider: {})",
+                provider.as_str()
+            );
         } else {
             eprintln!(
-                "Starting load test: {} requests with concurrency {}",
-                args.runs, args.concurrency
+                "Starting load test using provider '{}' with {} requests at concurrency {}",
+                provider.as_str(),
+                args.runs,
+                args.concurrency
             );
         }
+
+        let simulator = Simulator::new(sim_config);
 
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| AppError::Config(format!("Failed to create async runtime: {}", e)))?;
@@ -544,6 +536,53 @@ impl Cli {
         Self::display_load_test_results(&results, &model, &args.output_format, estimate_cost)?;
 
         Ok(())
+    }
+
+    #[cfg(feature = "load-test")]
+    fn resolve_api_key(args: &LoadTestArgs, provider: &Provider) -> Result<String, AppError> {
+        let key = match provider {
+            Provider::Openai => args
+                .openai_api_key
+                .clone()
+                .or_else(|| std::env::var("OPENAI_API_KEY").ok())
+                .or_else(|| args.api_key.clone())
+                .or_else(|| std::env::var("API_KEY").ok()),
+            Provider::Openrouter => args
+                .openrouter_api_key
+                .clone()
+                .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
+                .or_else(|| args.api_key.clone())
+                .or_else(|| std::env::var("API_KEY").ok()),
+            Provider::Anthropic => args
+                .anthropic_api_key
+                .clone()
+                .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
+                .or_else(|| args.api_key.clone())
+                .or_else(|| std::env::var("API_KEY").ok()),
+            Provider::Generic => args
+                .api_key
+                .clone()
+                .or_else(|| std::env::var("API_KEY").ok()),
+        };
+
+        match (provider, key) {
+            (Provider::Generic, Some(key)) => Ok(key),
+            (Provider::Generic, None) => Ok(String::new()),
+            (_, Some(key)) => Ok(key),
+            (_, None) if args.dry_run => Ok("dummy-key-for-dry-run".to_string()),
+            (Provider::Openai, None) => Err(AppError::Config(
+                "API key required for OpenAI. Use --openai-api-key, --api-key, or set OPENAI_API_KEY/API_KEY."
+                    .to_string(),
+            )),
+            (Provider::Openrouter, None) => Err(AppError::Config(
+                "API key required for OpenRouter. Use --openrouter-api-key, --api-key, or set OPENROUTER_API_KEY/API_KEY."
+                    .to_string(),
+            )),
+            (Provider::Anthropic, None) => Err(AppError::Config(
+                "API key required for Anthropic. Use --anthropic-api-key, --api-key, or set ANTHROPIC_API_KEY/API_KEY."
+                    .to_string(),
+            )),
+        }
     }
 
     /// Display load test results.
@@ -619,7 +658,6 @@ impl Cli {
                 }
 
                 if estimate_cost {
-                    // Calculate estimated cost using tokenizer
                     let registry = ModelRegistry::new();
                     if let Ok(tokenizer) = registry.get_tokenizer(model) {
                         let input_tokens: usize =
@@ -656,6 +694,9 @@ impl Cli {
                         "average": avg_latency,
                         "p50": p50,
                         "p95": p95
+                    },
+                    "tokens": {
+                        "total_reported": total_tokens_reported
                     }
                 });
                 println!(
@@ -664,8 +705,7 @@ impl Cli {
                 );
             }
             _ => {
-                // TODO: Implement other formats in Phase 2
-                println!("Format not yet implemented");
+                println!("Format {:?} not yet implemented", output_format);
             }
         }
 
@@ -944,7 +984,7 @@ impl Default for EstimateArgs {
 
 /// Load test command arguments (for internal use).
 #[cfg(feature = "load-test")]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct LoadTestArgs {
     model: String,
     endpoint: Option<String>,
@@ -952,6 +992,7 @@ struct LoadTestArgs {
     openai_api_key: Option<String>,
     anthropic_api_key: Option<String>,
     openrouter_api_key: Option<String>,
+    provider: Option<Provider>,
     concurrency: usize,
     runs: usize,
     prompt_file: Option<String>,
@@ -974,6 +1015,7 @@ impl From<Command> for LoadTestArgs {
                 openai_api_key,
                 anthropic_api_key,
                 openrouter_api_key,
+                provider,
                 concurrency,
                 runs,
                 prompt_file,
@@ -990,6 +1032,7 @@ impl From<Command> for LoadTestArgs {
                 openai_api_key,
                 anthropic_api_key,
                 openrouter_api_key,
+                provider,
                 concurrency,
                 runs,
                 prompt_file,
@@ -1002,6 +1045,46 @@ impl From<Command> for LoadTestArgs {
             },
             _ => panic!("Not a LoadTest command"),
         }
+    }
+}
+
+#[cfg(feature = "load-test")]
+impl LoadTestArgs {
+    fn resolve_provider(&self) -> Provider {
+        if let Some(provider) = &self.provider {
+            return provider.clone();
+        }
+
+        let model_lower = self.model.to_lowercase();
+        if model_lower.starts_with("claude-")
+            || model_lower.contains("anthropic/")
+            || model_lower.starts_with("anthropic/")
+        {
+            return Provider::Anthropic;
+        }
+
+        if model_lower.contains("openrouter/") {
+            return Provider::Openrouter;
+        }
+
+        if let Some(endpoint) = &self.endpoint {
+            let endpoint_lower = endpoint.to_lowercase();
+            if endpoint_lower.contains("anthropic") {
+                return Provider::Anthropic;
+            }
+            if endpoint_lower.contains("openrouter") {
+                return Provider::Openrouter;
+            }
+        }
+
+        if self.openrouter_api_key.is_some() {
+            return Provider::Openrouter;
+        }
+        if self.anthropic_api_key.is_some() {
+            return Provider::Anthropic;
+        }
+
+        Provider::Openai
     }
 }
 
@@ -1145,6 +1228,7 @@ mod tests {
                     openai_api_key,
                     anthropic_api_key,
                     openrouter_api_key,
+                    provider,
                     concurrency,
                     runs,
                     prompt_file,
@@ -1161,6 +1245,7 @@ mod tests {
                     assert!(openai_api_key.is_none());
                     assert!(anthropic_api_key.is_none());
                     assert!(openrouter_api_key.is_none());
+                    assert!(provider.is_none());
                     assert_eq!(concurrency, 2);
                     assert_eq!(runs, 5);
                     assert!(prompt_file.is_none());
@@ -1212,6 +1297,7 @@ mod tests {
                     openai_api_key,
                     anthropic_api_key,
                     openrouter_api_key,
+                    provider,
                     concurrency,
                     runs,
                     prompt_file,
@@ -1228,6 +1314,7 @@ mod tests {
                     assert!(openai_api_key.is_none());
                     assert!(anthropic_api_key.is_none());
                     assert_eq!(openrouter_api_key.as_deref(), Some("sk-or"));
+                    assert!(provider.is_none());
                     assert_eq!(concurrency, 4);
                     assert_eq!(runs, 10);
                     assert!(prompt_file.is_none());
@@ -1245,6 +1332,56 @@ mod tests {
                 #[allow(unreachable_patterns)]
                 _ => panic!("unexpected command variant"),
             }
+        }
+
+        #[test]
+        fn parse_load_test_with_explicit_provider() {
+            let cli = Cli::try_parse_from([
+                "tokuin",
+                "load-test",
+                "--model",
+                "claude-3-sonnet",
+                "--provider",
+                "anthropic",
+                "--anthropic-api-key",
+                "sk-anthropic",
+                "--runs",
+                "2",
+                "--concurrency",
+                "1",
+            ])
+            .expect("load-test args should parse with provider flag");
+
+            let command = cli.command.expect("load-test subcommand expected");
+            if let Command::LoadTest { provider, .. } = &command {
+                assert_eq!(provider.as_ref(), Some(&Provider::Anthropic));
+            } else {
+                panic!("unexpected command variant");
+            }
+
+            let args = LoadTestArgs::from(command);
+            assert_eq!(args.resolve_provider(), Provider::Anthropic);
+        }
+
+        #[test]
+        fn resolve_provider_from_model_heuristic() {
+            let cli = Cli::try_parse_from([
+                "tokuin",
+                "load-test",
+                "--model",
+                "anthropic/claude-3-5-sonnet",
+                "--runs",
+                "1",
+                "--concurrency",
+                "1",
+                "--anthropic-api-key",
+                "sk-anthropic",
+            ])
+            .expect("load-test args should parse");
+
+            let command = cli.command.expect("load-test subcommand expected");
+            let args = LoadTestArgs::from(command);
+            assert_eq!(args.resolve_provider(), Provider::Anthropic);
         }
     }
 }

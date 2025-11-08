@@ -193,7 +193,7 @@ cat prompts.txt | tokuin --model gpt-4
 
 Run load tests against LLM APIs to measure performance, latency, and costs:
 
-> Provide credentials explicitly with `--openrouter-api-key`, `--openai-api-key`, or `--anthropic-api-key` (or set the matching environment variable). If you use the generic `--api-key`, make sure the `--model` value includes the provider prefix (e.g. `openai/gpt-4`).
+> Pass credentials via dedicated flags (`--openrouter-api-key`, `--openai-api-key`, `--anthropic-api-key`), `--api-key`, or matching environment variables. The CLI will auto-detect the provider from the model name or endpoint, and you can override it explicitly with `--provider {openai|openrouter|anthropic|generic}`.
 
 ```bash
 # Basic load test with OpenAI
@@ -210,13 +210,32 @@ echo "Hello!" | tokuin load-test \
   --model openai/gpt-4 \
   --runs 50 \
   --concurrency 5 \
+  --provider openrouter \
   --openrouter-api-key "$OPENROUTER_API_KEY"
+
+# With Anthropic (direct API)
+export ANTHROPIC_API_KEY="sk-ant-..."
+echo "Draft a product overview" | tokuin load-test \
+  --model claude-3-sonnet \
+  --provider anthropic \
+  --runs 25 \
+  --concurrency 5 \
+  --anthropic-api-key "$ANTHROPIC_API_KEY"
 
 # With think time between requests
 tokuin load-test --model gpt-4 --runs 200 --concurrency 20 --think-time "250-750ms" --prompt-file prompts.txt
 
 # Dry run to estimate costs without making API calls
 echo "Test prompt" | tokuin load-test --model gpt-4 --runs 1000 --concurrency 50 --dry-run --estimate-cost
+
+# Generic provider (bring-your-own endpoint)
+echo "Ping" | tokuin load-test \
+  --model lambda-1 \
+  --provider generic \
+  --endpoint https://example.com/api/infer \
+  --api-key "token" \
+  --runs 10 \
+  --concurrency 2
 
 # With retry and cost estimation
 tokuin load-test \
@@ -308,7 +327,7 @@ OPTIONS:
 - `OPENAI_API_KEY` - OpenAI API key
 - `ANTHROPIC_API_KEY` - Anthropic API key
 - `OPENROUTER_API_KEY` - OpenRouter API key
-- `API_KEY` - Generic API key (provider auto-detected)
+- `API_KEY` - Generic API key (provider auto-detected unless `--provider` is set)
 
 ## 🔧 Features
 
@@ -361,16 +380,24 @@ OpenRouter provides access to 400+ models from various providers through a unifi
 
 - `openai/gpt-4`
 - `openai/gpt-3.5-turbo`
-- `anthropic/claude-2`
-- `anthropic/claude-3-opus`
+- `anthropic/claude-3-haiku`
 - `meta-llama/llama-2-70b-chat`
 - `google/gemini-pro`
-- And 400+ more models...
+- And hundreds more — see the [OpenRouter catalog](https://openrouter.ai/models).
 
-See [OpenRouter Models](https://openrouter.ai/models) for the full list.
+### Anthropic (requires `--features load-test`)
+
+- `claude-3-opus`
+- `claude-3-sonnet`
+- `claude-3-haiku`
+
+Call Anthropic directly with `--provider anthropic` plus an API key.
+
+### Generic Endpoint (requires `--features load-test`)
+
+Use `--provider generic` and supply `--endpoint` (and optional `--api-key` / extra headers via `--header` soon) to load test your own gateway or proxy. Responses should return a top-level `content`, `response`, `result`, `output`, or `choices[*].message.content` field.
 
 ### Planned Providers
-- Anthropic Claude (direct API support)
 - Mistral AI
 - Cohere
 - AI21 Labs
