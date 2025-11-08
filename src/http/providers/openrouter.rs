@@ -226,18 +226,17 @@ mod tests {
                         "temperature": 0.7
                     }));
 
-                then.status(200)
-                    .json_body(json!({
-                        "choices": [
-                            { "message": { "content": "ack" } }
-                        ],
-                        "usage": {
-                            "prompt_tokens": 11,
-                            "completion_tokens": 3,
-                            "total_tokens": 14
-                        },
-                        "model": "openrouter/llama"
-                    }));
+                then.status(200).json_body(json!({
+                    "choices": [
+                        { "message": { "content": "ack" } }
+                    ],
+                    "usage": {
+                        "prompt_tokens": 11,
+                        "completion_tokens": 3,
+                        "total_tokens": 14
+                    },
+                    "model": "openrouter/llama"
+                }));
             })
             .await;
 

@@ -218,18 +218,17 @@ mod tests {
                         "temperature": 0.7
                     }));
 
-                then.status(200)
-                    .json_body(json!({
-                        "choices": [
-                            { "message": { "content": "pong" } }
-                        ],
-                        "usage": {
-                            "prompt_tokens": 5,
-                            "completion_tokens": 7,
-                            "total_tokens": 12
-                        },
-                        "model": "gpt-4o-mini"
-                    }));
+                then.status(200).json_body(json!({
+                    "choices": [
+                        { "message": { "content": "pong" } }
+                    ],
+                    "usage": {
+                        "prompt_tokens": 5,
+                        "completion_tokens": 7,
+                        "total_tokens": 12
+                    },
+                    "model": "gpt-4o-mini"
+                }));
             })
             .await;
 

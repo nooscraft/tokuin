@@ -342,7 +342,10 @@ mod tests {
         assert_eq!(results[0].content.as_deref(), Some("ok-1"));
         assert!(results[0].error.is_none());
 
-        assert!(results[1].success, "second request should succeed after retry");
+        assert!(
+            results[1].success,
+            "second request should succeed after retry"
+        );
         assert_eq!(results[1].content.as_deref(), Some("ok-2"));
 
         assert!(
