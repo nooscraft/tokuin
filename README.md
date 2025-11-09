@@ -451,7 +451,7 @@ Thanks to everyone who has dived in—bugs, docs, and feature requests all help 
 
 [![Contributors](https://contrib.rocks/image?repo=nooscraft/tokuin)](https://github.com/nooscraft/tokuin/graphs/contributors)
 
-If you ship a noteworthy feature, open a PR and add yourself to `docs/CONTRIBUTORS.md` (or include a small note in your PR and we’ll update it). Shoutouts go out in release notes.
+If you ship a noteworthy feature, open a PR and add yourself to `CONTRIBUTORS.md` (or include a small note in your PR and we’ll update it). Shoutouts go out in release notes.
 
 ### Adding New Models
 
