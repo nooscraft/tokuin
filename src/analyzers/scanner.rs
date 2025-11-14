@@ -26,11 +26,7 @@ pub struct PromptScanner {
 
 impl PromptScanner {
     /// Create a new prompt scanner.
-    pub fn new(
-        registry: ModelRegistry,
-        model: String,
-        context_limit: Option<usize>,
-    ) -> Self {
+    pub fn new(registry: ModelRegistry, model: String, context_limit: Option<usize>) -> Self {
         Self {
             registry,
             model,
@@ -144,7 +140,8 @@ impl PromptScanner {
             let ext_lower = ext.to_string_lossy().to_lowercase();
             match ext_lower.as_str() {
                 "json" => {
-                    if content.trim_start().starts_with('{') || content.trim_start().starts_with('[')
+                    if content.trim_start().starts_with('{')
+                        || content.trim_start().starts_with('[')
                     {
                         return FileFormat::Json;
                     }
@@ -224,11 +221,7 @@ impl PromptScanner {
         // Top N most expensive
         let mut sorted_by_cost: Vec<&PromptAnalysis> = analyses.iter().collect();
         sorted_by_cost.sort_by(|a, b| b.total_cost.partial_cmp(&a.total_cost).unwrap());
-        insights.top_expensive = sorted_by_cost
-            .into_iter()
-            .take(top_n)
-            .cloned()
-            .collect();
+        insights.top_expensive = sorted_by_cost.into_iter().take(top_n).cloned().collect();
 
         // Exceeded limits
         insights.exceeded_limits = analyses
@@ -298,9 +291,19 @@ mod tests {
         let dist = PromptScanner::calculate_distribution(&analyses);
         // Should have buckets: 100 (50), 500 (150), 1000 (600), 5000 (2000), overflow (60000)
         assert!(dist.len() >= 4, "Should have at least 4 buckets");
-        assert!(dist.iter().any(|(max, _)| *max == 100), "Should have 100 bucket");
-        assert!(dist.iter().any(|(max, _)| *max == 500), "Should have 500 bucket");
-        assert_eq!(dist.iter().map(|(_, count)| count).sum::<usize>(), 5, "Total count should be 5");
+        assert!(
+            dist.iter().any(|(max, _)| *max == 100),
+            "Should have 100 bucket"
+        );
+        assert!(
+            dist.iter().any(|(max, _)| *max == 500),
+            "Should have 500 bucket"
+        );
+        assert_eq!(
+            dist.iter().map(|(_, count)| count).sum::<usize>(),
+            5,
+            "Total count should be 5"
+        );
     }
 
     fn create_analysis(tokens: usize) -> PromptAnalysis {
@@ -321,4 +324,3 @@ mod tests {
         }
     }
 }
-

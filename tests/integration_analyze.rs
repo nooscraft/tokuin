@@ -60,8 +60,14 @@ fn test_analyze_folder_basic() {
 
     assert!(output.status.success(), "Command should succeed");
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("\"total_prompts\""), "Should contain total_prompts");
-    assert!(stdout.contains("\"token_distribution\""), "Should contain distribution");
+    assert!(
+        stdout.contains("\"total_prompts\""),
+        "Should contain total_prompts"
+    );
+    assert!(
+        stdout.contains("\"token_distribution\""),
+        "Should contain distribution"
+    );
 }
 
 #[test]
@@ -83,7 +89,10 @@ fn test_analyze_folder_text_output() {
 
     assert!(output.status.success(), "Command should succeed");
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Prompt Library Insights"), "Should contain header");
+    assert!(
+        stdout.contains("Prompt Library Insights"),
+        "Should contain header"
+    );
     assert!(stdout.contains("Total Prompts"), "Should contain summary");
 }
 
@@ -161,4 +170,3 @@ fn test_analyze_folder_top_n() {
         .collect();
     assert!(lines.len() <= 3, "Should show at most 3 top prompts");
 }
-

@@ -14,7 +14,9 @@ pub fn normalize_content(content: &str) -> String {
 }
 
 /// Detect duplicate prompts based on normalized content.
-pub fn detect_duplicates(analyses: &[crate::analyzers::types::PromptAnalysis]) -> Vec<Vec<PathBuf>> {
+pub fn detect_duplicates(
+    analyses: &[crate::analyzers::types::PromptAnalysis],
+) -> Vec<Vec<PathBuf>> {
     let mut content_map: HashMap<String, Vec<PathBuf>> = HashMap::new();
 
     // Group files by normalized content
@@ -101,4 +103,3 @@ mod tests {
         assert!(duplicates.is_empty());
     }
 }
-

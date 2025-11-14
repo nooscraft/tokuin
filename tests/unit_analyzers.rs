@@ -1,9 +1,9 @@
+use std::path::PathBuf;
 /// Unit tests for analyzers module.
 use tokuin::analyzers::duplicates::{detect_duplicates, normalize_content};
 use tokuin::analyzers::scanner::PromptScanner;
 use tokuin::analyzers::types::PromptAnalysis;
 use tokuin::parsers::Message;
-use std::path::PathBuf;
 
 #[test]
 fn test_normalize_content() {
@@ -65,7 +65,11 @@ fn test_detect_duplicates_with_whitespace() {
     ];
 
     let duplicates = detect_duplicates(&analyses);
-    assert_eq!(duplicates.len(), 1, "Should detect duplicates despite whitespace");
+    assert_eq!(
+        duplicates.len(),
+        1,
+        "Should detect duplicates despite whitespace"
+    );
 }
 
 #[test]
@@ -92,7 +96,10 @@ fn test_calculate_distribution() {
 
     let dist = PromptScanner::calculate_distribution(&analyses);
     assert!(!dist.is_empty(), "Should have distribution");
-    assert!(dist.iter().any(|(_, count)| *count > 0), "Should have counts");
+    assert!(
+        dist.iter().any(|(_, count)| *count > 0),
+        "Should have counts"
+    );
 }
 
 #[test]
@@ -141,4 +148,3 @@ fn test_generate_insights_duplicates() {
     assert_eq!(insights.duplicates.len(), 1);
     assert_eq!(insights.duplicates[0].len(), 2);
 }
-

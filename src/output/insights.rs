@@ -7,7 +7,11 @@ pub struct InsightsFormatter;
 
 impl InsightsFormatter {
     /// Format insights as text.
-    pub fn format_text(insights: &LibraryInsights, model: &str, context_limit: Option<usize>) -> String {
+    pub fn format_text(
+        insights: &LibraryInsights,
+        model: &str,
+        context_limit: Option<usize>,
+    ) -> String {
         let mut output = Vec::new();
 
         output.push("Prompt Library Insights".to_string());
@@ -19,7 +23,10 @@ impl InsightsFormatter {
         output.push("-".repeat(50).to_string());
         output.push(format!("Total Prompts: {}", insights.total_prompts));
         output.push(format!("Total Tokens: {}", insights.total_tokens));
-        output.push(format!("Estimated Cost (per invocation): ${:.4}", insights.total_cost));
+        output.push(format!(
+            "Estimated Cost (per invocation): ${:.4}",
+            insights.total_cost
+        ));
         output.push(format!("Monthly Cost: ${:.2}", insights.monthly_cost));
         output.push(String::new());
 
@@ -50,7 +57,10 @@ impl InsightsFormatter {
 
         // Top N Most Expensive
         if !insights.top_expensive.is_empty() {
-            output.push(format!("Top {} Most Expensive Prompts", insights.top_expensive.len()));
+            output.push(format!(
+                "Top {} Most Expensive Prompts",
+                insights.top_expensive.len()
+            ));
             output.push("-".repeat(50).to_string());
             for (i, analysis) in insights.top_expensive.iter().enumerate() {
                 let file_display = analysis.file_path.to_string_lossy();
@@ -260,4 +270,3 @@ mod tests {
         assert!(output.contains("test2.txt"));
     }
 }
-

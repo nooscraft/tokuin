@@ -11,4 +11,3 @@ pub mod utils;
 pub mod http;
 #[cfg(feature = "load-test")]
 pub mod simulator;
-

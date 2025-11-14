@@ -345,9 +345,14 @@ impl Cli {
                 monthly_invocations,
                 context_limit,
                 format,
-            }) => {
-                Self::run_analyze(folder, model, top_n, monthly_invocations, context_limit, format)
-            }
+            }) => Self::run_analyze(
+                folder,
+                model,
+                top_n,
+                monthly_invocations,
+                context_limit,
+                format,
+            ),
             None => {
                 // Backward compatibility: use flat structure
                 let estimate_args = EstimateArgs {
@@ -856,16 +861,14 @@ impl Cli {
 
         let folder_path = Path::new(&folder);
         if !folder_path.exists() {
-            return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
-                "Directory does not exist: {}",
-                folder
-            ))));
+            return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                format!("Directory does not exist: {}", folder),
+            )));
         }
         if !folder_path.is_dir() {
-            return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
-                "Path is not a directory: {}",
-                folder
-            ))));
+            return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                format!("Path is not a directory: {}", folder),
+            )));
         }
 
         // Create model registry
