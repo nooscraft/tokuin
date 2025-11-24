@@ -10,6 +10,7 @@ use crate::utils::markdown;
 /// CLI argument parsing and command execution.
 use clap::{Parser, Subcommand, ValueEnum};
 use std::io::{self, Read};
+use std::path::Path;
 #[cfg(feature = "watch")]
 use std::path::PathBuf;
 #[cfg(feature = "watch")]
@@ -208,6 +209,103 @@ pub enum Command {
         #[arg(short, long, value_enum, default_value = "text")]
         format: OutputFormat,
     },
+
+    /// Extract reusable context patterns from a prompt library
+    #[cfg(feature = "compression")]
+    #[command(name = "extract-context")]
+    ExtractContext {
+        /// Directory containing prompt files
+        #[arg(value_name = "DIR")]
+        directory: String,
+
+        /// Output file for context library (default: contexts.toml)
+        #[arg(short, long, default_value = "contexts.toml")]
+        output: String,
+
+        /// Minimum frequency for a pattern (default: 2)
+        #[arg(long, default_value = "2")]
+        min_frequency: usize,
+
+        /// Minimum similarity threshold (0.0-1.0, default: 0.85)
+        #[arg(long, default_value = "0.85")]
+        min_similarity: f64,
+
+        /// Model to use for tokenization (default: gpt-4)
+        #[arg(short, long, default_value = "gpt-4")]
+        model: String,
+    },
+
+    /// Compress a prompt to Hieratic format
+    #[cfg(feature = "compression")]
+    Compress {
+        /// Input prompt file
+        #[arg(value_name = "FILE")]
+        input: String,
+
+        /// Output file (default: <input>.hieratic)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Compression level
+        #[arg(short, long, value_enum, default_value = "medium")]
+        level: CompressionLevelArg,
+
+        /// Context library path (default: contexts.toml)
+        #[arg(long)]
+        context_lib: Option<String>,
+
+        /// Force inline mode (no context references)
+        #[arg(long)]
+        inline: bool,
+
+        /// Enable structured document mode (better for JSON, code, tables, technical docs)
+        #[arg(long)]
+        structured: bool,
+
+        /// Enable incremental compression (only compress new content)
+        #[arg(long)]
+        incremental: bool,
+
+        /// Custom incremental state file path (default: <input>.state.json)
+        #[arg(long, requires = "incremental")]
+        previous: Option<String>,
+
+        /// Token threshold for creating anchors (default: 1000)
+        #[arg(long, default_value = "1000")]
+        anchor_threshold: usize,
+
+        /// Token retention threshold (default: 500)
+        #[arg(long, default_value = "500")]
+        retention_threshold: usize,
+
+        /// Model to use for tokenization (default: gpt-4)
+        #[arg(short, long, default_value = "gpt-4")]
+        model: String,
+
+        /// Output format
+        #[arg(short, long, value_enum, default_value = "hieratic")]
+        format: CompressionOutputFormat,
+
+        /// Scoring mode (heuristic, semantic, or hybrid)
+        #[arg(long, value_enum, default_value = "heuristic")]
+        scoring: CompressionScoringMode,
+    },
+
+    /// Expand a Hieratic file back to full prompt
+    #[cfg(feature = "compression")]
+    Expand {
+        /// Hieratic file to expand
+        #[arg(value_name = "FILE")]
+        input: String,
+
+        /// Output file (default: stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Context library path (default: contexts.toml)
+        #[arg(long)]
+        context_lib: Option<String>,
+    },
 }
 
 /// Output format options.
@@ -220,6 +318,42 @@ pub enum OutputFormat {
     /// Markdown report format
     #[cfg(feature = "markdown")]
     Markdown,
+}
+
+/// Compression level options.
+#[cfg(feature = "compression")]
+#[derive(Debug, Clone, ValueEnum)]
+pub enum CompressionLevelArg {
+    /// Light compression (30-50% reduction)
+    Light,
+    /// Medium compression (50-70% reduction)
+    Medium,
+    /// Aggressive compression (70-90% reduction)
+    Aggressive,
+}
+
+/// Compression output format options.
+#[cfg(feature = "compression")]
+#[derive(Debug, Clone, PartialEq, Eq, ValueEnum)]
+pub enum CompressionOutputFormat {
+    /// Hieratic format (.hieratic)
+    Hieratic,
+    /// Expanded full text
+    Expanded,
+    /// JSON format
+    Json,
+}
+
+/// Compression scoring mode options.
+#[cfg(feature = "compression")]
+#[derive(Debug, Clone, ValueEnum)]
+pub enum CompressionScoringMode {
+    /// Heuristic-based scoring (keyword matching, position-based)
+    Heuristic,
+    /// Embedding-based semantic scoring (requires compression-embeddings feature)
+    Semantic,
+    /// Hybrid: combine embeddings and heuristics (best of both)
+    Hybrid,
 }
 
 /// Load test output format options.
@@ -353,6 +487,52 @@ impl Cli {
                 context_limit,
                 format,
             ),
+            #[cfg(feature = "compression")]
+            Some(Command::ExtractContext {
+                directory,
+                output,
+                min_frequency,
+                min_similarity,
+                model,
+            }) => {
+                Self::run_extract_context(directory, output, min_frequency, min_similarity, model)
+            }
+            #[cfg(feature = "compression")]
+            Some(Command::Compress {
+                input,
+                output,
+                level,
+                context_lib,
+                inline,
+                structured,
+                incremental,
+                previous,
+                anchor_threshold,
+                retention_threshold,
+                model,
+                format,
+                scoring,
+            }) => Self::run_compress(
+                input,
+                output,
+                level,
+                context_lib,
+                inline,
+                structured,
+                incremental,
+                previous,
+                anchor_threshold,
+                retention_threshold,
+                model,
+                format,
+                scoring,
+            ),
+            #[cfg(feature = "compression")]
+            Some(Command::Expand {
+                input,
+                output,
+                context_lib,
+            }) => Self::run_expand(input, output, context_lib),
             None => {
                 // Backward compatibility: use flat structure
                 let estimate_args = EstimateArgs {
@@ -857,7 +1037,6 @@ impl Cli {
     ) -> Result<(), AppError> {
         use crate::analyzers::PromptScanner;
         use crate::output::InsightsFormatter;
-        use std::path::Path;
 
         let folder_path = Path::new(&folder);
         if !folder_path.exists() {
@@ -907,6 +1086,307 @@ impl Cli {
                 let output = InsightsFormatter::format_text(&insights, &model, context_limit);
                 println!("{}", output);
             }
+        }
+
+        Ok(())
+    }
+
+    /// Extract context patterns from a prompt library
+    #[cfg(feature = "compression")]
+    fn run_extract_context(
+        directory: String,
+        output: String,
+        min_frequency: usize,
+        min_similarity: f64,
+        model: String,
+    ) -> Result<(), AppError> {
+        use crate::compression::context_library::ContextLibraryManager;
+        use crate::compression::pattern_extractor::{ExtractionConfig, PatternExtractor};
+
+        let registry = ModelRegistry::new_with_pricing(None).map_err(AppError::Model)?;
+        let tokenizer = registry.get_tokenizer(&model)?;
+
+        let config = ExtractionConfig {
+            min_frequency,
+            min_similarity,
+            ..Default::default()
+        };
+
+        eprintln!("Extracting patterns from: {}", directory);
+        let extractor = PatternExtractor::new(tokenizer, config);
+        let library = extractor.extract_from_directory(Path::new(&directory))?;
+
+        eprintln!("Extracted {} patterns", library.patterns.len());
+
+        let mut manager = ContextLibraryManager::new();
+        *manager.library_mut() = library;
+        manager.save_to_file(&output)?;
+
+        eprintln!("Context library saved to: {}", output);
+        Ok(())
+    }
+
+    /// Compress a prompt to Hieratic format
+    #[cfg(feature = "compression")]
+    fn run_compress(
+        input: String,
+        output: Option<String>,
+        level: CompressionLevelArg,
+        context_lib: Option<String>,
+        inline: bool,
+        structured: bool,
+        incremental: bool,
+        previous: Option<String>,
+        anchor_threshold: usize,
+        retention_threshold: usize,
+        model: String,
+        format: CompressionOutputFormat,
+        scoring: CompressionScoringMode,
+    ) -> Result<(), AppError> {
+        use crate::compression::compressor::Compressor;
+        use crate::compression::context_library::ContextLibraryManager;
+        use crate::compression::hieratic_encoder::HieraticEncoder;
+        use crate::compression::types::{CompressionAnchor, CompressionConfig, CompressionLevel, ScoringMode};
+        use std::fs;
+
+        let registry = ModelRegistry::new_with_pricing(None).map_err(AppError::Model)?;
+        let tokenizer = registry.get_tokenizer(&model)?;
+        let prompt = fs::read_to_string(&input).map_err(|e| {
+            AppError::Io(std::io::Error::other(format!(
+                "Failed to read input file: {}",
+                e
+            )))
+        })?;
+
+        let mut compressor = Compressor::new(tokenizer);
+
+        if !inline {
+            if let Some(ref lib_path) = context_lib {
+                if std::path::Path::new(lib_path).exists() {
+                    let library = ContextLibraryManager::load_from_file(lib_path)?;
+                    compressor = compressor.with_context_library(library);
+                }
+            } else if std::path::Path::new("contexts.toml").exists() {
+                let library = ContextLibraryManager::load_from_file("contexts.toml")?;
+                compressor = compressor.with_context_library(library);
+            }
+        }
+
+        let compression_level = match level {
+            CompressionLevelArg::Light => CompressionLevel::Light,
+            CompressionLevelArg::Medium => CompressionLevel::Medium,
+            CompressionLevelArg::Aggressive => CompressionLevel::Aggressive,
+        };
+
+        let scoring_mode = match scoring {
+            CompressionScoringMode::Heuristic => ScoringMode::Heuristic,
+            CompressionScoringMode::Semantic => ScoringMode::Semantic,
+            CompressionScoringMode::Hybrid => ScoringMode::Hybrid,
+        };
+
+        // Initialize embeddings if semantic or hybrid mode is selected
+        #[cfg(feature = "compression-embeddings")]
+        if matches!(scoring_mode, ScoringMode::Semantic | ScoringMode::Hybrid) {
+            use crate::compression::embeddings::OnnxEmbeddingProvider;
+            eprintln!("Initializing embedding model for semantic scoring...");
+            match OnnxEmbeddingProvider::new() {
+                Ok(provider) => {
+                    eprintln!("✓ Embedding model loaded successfully");
+                    compressor = compressor.with_embeddings(Box::new(provider))
+                        .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                            "Failed to initialize embeddings: {}",
+                            e
+                        ))))?;
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Warning: Embeddings not available ({}), falling back to heuristic scoring", e);
+                    eprintln!("   To use semantic scoring, ensure the embedding model is downloaded.");
+                }
+            }
+        }
+
+        let state_file_path = if incremental {
+            Some(
+                previous
+                    .clone()
+                    .unwrap_or_else(|| format!("{}.state.json", input)),
+            )
+        } else {
+            None
+        };
+
+        let previous_state = if let Some(ref path) = state_file_path {
+            if Path::new(path).exists() {
+                eprintln!("Loading incremental state from: {}", path);
+                let prev_json = fs::read_to_string(path).map_err(|e| {
+                    AppError::Io(std::io::Error::other(format!(
+                        "Failed to read state file: {}",
+                        e
+                    )))
+                })?;
+                let prev: crate::compression::types::CompressionResult =
+                    serde_json::from_str(&prev_json)
+                        .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidJson(e)))?;
+                Some(Box::new(prev))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let config = CompressionConfig {
+            level: compression_level,
+            context_library_path: context_lib.clone(),
+            force_inline: inline,
+            structured_mode: structured,
+            incremental_mode: incremental,
+            anchor_threshold,
+            retention_threshold,
+            previous_result: previous_state.clone(),
+            scoring_mode,
+            ..Default::default()
+        };
+
+        eprintln!("Compressing: {}", input);
+        let use_incremental = incremental && previous_state.is_some();
+        if incremental && !use_incremental {
+            eprintln!(
+                "No incremental state found. Running full compression and seeding state file."
+            );
+        }
+
+        let result = if use_incremental {
+            eprintln!("Using incremental compression mode");
+            compressor.compress_incremental(&prompt, &config)?
+        } else {
+            compressor.compress(&prompt, &config)?
+        };
+
+        let hieratic_encoder = HieraticEncoder::new();
+        let hieratic_output = hieratic_encoder.encode(&result.document)?;
+
+        let output_content = match format {
+            CompressionOutputFormat::Hieratic => hieratic_output.clone(),
+            CompressionOutputFormat::Expanded => {
+                // For expanded, we just output the original
+                prompt
+            }
+            CompressionOutputFormat::Json => serde_json::to_string_pretty(&result)
+                .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidJson(e)))?,
+        };
+
+        let output_path = output.unwrap_or_else(|| format!("{}.hieratic", input));
+        fs::write(&output_path, output_content).map_err(|e| {
+            AppError::Io(std::io::Error::other(format!(
+                "Failed to write output: {}",
+                e
+            )))
+        })?;
+
+        eprintln!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        eprintln!("Compression Summary:");
+        eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        eprintln!("Original:  {} tokens", result.original_tokens);
+        eprintln!("Compressed: {} tokens", result.compressed_tokens);
+        eprintln!(
+            "Reduction: {:.1}% ({} tokens saved)",
+            result.compression_percentage(),
+            result.tokens_saved
+        );
+
+        if incremental && !result.anchors.is_empty() {
+            eprintln!("\nIncremental Mode:");
+            eprintln!("  Anchors: {}", result.anchors.len());
+            eprintln!(
+                "  Anchor tokens: {}",
+                result
+                    .anchors
+                    .iter()
+                    .map(|a| a.summary_tokens)
+                    .sum::<usize>()
+            );
+            eprintln!("  Retained tokens: {}", retention_threshold);
+        }
+
+        eprintln!("\nOutput: {}", output_path);
+        eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        if incremental {
+            if let Some(ref path) = state_file_path {
+                let mut state_result = result.clone();
+                if state_result.anchors.is_empty() {
+                    let anchor = CompressionAnchor::from_base_document(
+                        hieratic_output.clone(),
+                        result.compressed_tokens,
+                        result.original_tokens,
+                    );
+                    state_result.anchors.push(anchor);
+                }
+                let json_content = serde_json::to_string_pretty(&state_result)
+                    .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidJson(e)))?;
+                fs::write(path, json_content).map_err(|e| {
+                    AppError::Io(std::io::Error::other(format!(
+                        "Failed to write state file: {}",
+                        e
+                    )))
+                })?;
+                eprintln!("Incremental state saved to: {}", path);
+            }
+        } else if format == CompressionOutputFormat::Json {
+            let json_path = format!("{}.json", output_path);
+            let json_content = serde_json::to_string_pretty(&result)
+                .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidJson(e)))?;
+            fs::write(&json_path, json_content).map_err(|e| {
+                AppError::Io(std::io::Error::other(format!(
+                    "Failed to write JSON: {}",
+                    e
+                )))
+            })?;
+        }
+
+        Ok(())
+    }
+
+    /// Expand a Hieratic file back to full prompt
+    #[cfg(feature = "compression")]
+    fn run_expand(
+        input: String,
+        output: Option<String>,
+        context_lib: Option<String>,
+    ) -> Result<(), AppError> {
+        use crate::compression::context_library::ContextLibraryManager;
+        use crate::compression::hieratic_decoder::HieraticDecoder;
+        use std::fs;
+
+        let hieratic_content = fs::read_to_string(&input).map_err(|e| {
+            AppError::Io(std::io::Error::other(format!(
+                "Failed to read input file: {}",
+                e
+            )))
+        })?;
+
+        let mut decoder = HieraticDecoder::new()?;
+
+        if let Some(ref lib_path) = context_lib {
+            decoder = decoder.load_context_library(lib_path)?;
+        } else if std::path::Path::new("contexts.toml").exists() {
+            decoder = decoder.load_context_library("contexts.toml")?;
+        }
+
+        eprintln!("Expanding: {}", input);
+        let expanded = decoder.decode(&hieratic_content)?;
+
+        if let Some(output_path) = output {
+            fs::write(&output_path, &expanded).map_err(|e| {
+                AppError::Io(std::io::Error::other(format!(
+                    "Failed to write output: {}",
+                    e
+                )))
+            })?;
+            eprintln!("Expanded prompt saved to: {}", output_path);
+        } else {
+            println!("{}", expanded);
         }
 
         Ok(())

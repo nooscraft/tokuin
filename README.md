@@ -14,6 +14,8 @@ A fast, CLI-based tool to estimate **token usage** and **API cost** for prompts 
 - **Role-Based Breakdown**: Show token count by system/user/assistant role messages
 - **Multiple Input Formats**: Support plain text and JSON chat formats
 - **Flexible Output**: Human-readable text or JSON output for scripting
+- **Prompt Compression** (requires `--features compression`): Compress prompts by 70-90% using the Hieratic format - LLM-parseable, semantic-preserving
+- **Prompt Library Analysis**: Scan directories of prompts, detect duplicates, show token distribution, and estimate costs at scale
 - **Load Testing** (requires `--features load-test`): Run concurrent load tests against LLM APIs with real-time metrics, progress bars, and cost estimation
 
 ## 🚀 Installation
@@ -287,6 +289,190 @@ Cost Estimation:
   Output cost: $0.720000
   Total cost: $0.870000
 ```
+
+## 🗜️ Prompt Compression with Hieratic Format (requires `--features compression`)
+
+Tokuin includes a powerful prompt compression system that uses the **Hieratic format** - a structured, LLM-parseable format that reduces token usage by 70-90% while remaining directly usable with any LLM.
+
+### Why Hieratic?
+
+Named after ancient Egypt's compressed cursive writing (a practical simplification of hieroglyphics), Hieratic preserves prompt semantics while dramatically reducing costs and latency.
+
+### Workflow
+
+1. **Extract reusable patterns** from your prompt library
+2. **Compress prompts** using those patterns + extractive compression
+3. **Use compressed prompts** directly with LLMs (they understand the format natively)
+
+### Extract Context Patterns
+
+Scan a directory of prompts to identify reusable patterns:
+
+```bash
+tokuin extract-context ./prompts --output contexts.toml --model gpt-4
+```
+
+This creates a `contexts.toml` file containing frequently-used role descriptions, examples, and constraints.
+
+### Compress a Prompt
+
+```bash
+tokuin compress my-prompt.txt --level medium --output compressed.hieratic
+```
+
+Options:
+- `--level`: `light` (30-50%), `medium` (50-70%), `aggressive` (70-90%)
+- `--structured`: Enable structured document mode (better for JSON, code, tables, technical docs)
+- `--context-lib`: Path to context library (default: `contexts.toml`)
+- `--inline`: Force inline mode (no context references)
+- `--format`: Output format (`hieratic`, `expanded`, `json`)
+
+Output:
+```
+Compressing: my-prompt.txt
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Compression Summary:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Original:  2,450 tokens
+Compressed: 420 tokens
+Reduction: 82.9% (2,030 tokens saved)
+
+Output: my-prompt.hieratic
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### Hieratic Format Example
+
+**Original (850 tokens):**
+```
+You are an expert programmer with 10 years of experience...
+[full verbose role description]
+
+Example 1: Bug Fix in Authentication
+[detailed example]
+...
+```
+
+**Hieratic (285 tokens, 66.5% reduction):**
+```hieratic
+@HIERATIC v1.0
+
+@ROLE[inline]
+"Expert engineer: 15y full-stack, Python/JS/Go, architecture, patterns"
+
+@EXAMPLES[inline]
+1. Auth bug: session token bypass → HMAC signing → 94% bot reduction
+2. DB perf: 2.3s queries → pooling+cache → 0.1s, 10x capacity
+
+@TASK
+Analyze code and provide recommendations
+
+@FOCUS: performance, security, maintainability
+@STYLE: concise, actionable
+```
+
+### Structured Document Mode
+
+For complex technical documents (JSON-heavy prompts, HTML tables, BNF grammars, code blocks), use `--structured`:
+
+```bash
+tokuin compress technical-prompt.txt --structured --level medium
+```
+
+**Benefits:**
+- ✅ Preserves JSON document structure
+- ✅ Keeps HTML tables intact
+- ✅ Detects and consolidates repetitive instruction patterns
+- ✅ Segments by logical sections (definitions, examples, formats)
+- ✅ Structure-aware importance scoring
+
+**When to use `--structured`:**
+- LLM extraction/parsing instructions with JSON documents
+- Prompts with HTML tables or code blocks
+- Technical specifications with repeated formatting rules
+- Documents with clear sections (Definition:, Location:, Response Format:)
+
+**When to use default mode:**
+- Conversational prompts
+- Natural language instructions
+- Simple role/task descriptions
+
+### Incremental Compression (Factory.ai-Inspired)
+
+For multi-turn conversations or continuously growing documents, use `--incremental` to avoid re-compressing already processed content:
+
+```bash
+# First compression (auto-creates conversation-turn1.txt.state.json)
+tokuin compress conversation-turn1.txt --incremental --anchor-threshold 1000 --retention-threshold 500
+
+# Subsequent turns — state file is auto-detected
+tokuin compress conversation-turn2.txt --incremental
+tokuin compress conversation-turn3.txt --incremental
+```
+
+**How it works:**
+- Creates **anchors** at regular intervals (every `--anchor-threshold` tokens)
+- Each anchor stores a compressed summary of content up to that point
+- Keeps recent content uncompressed (last `--retention-threshold` tokens)
+- Only compresses the delta between last anchor and new content
+
+**Benefits:**
+- ✅ Much faster for long conversations (no re-compression)
+- ✅ Lower cost per compression operation
+- ✅ Maintains context across multiple turns
+- ✅ Ideal for agent workflows and chat sessions
+
+**Options:**
+- `--anchor-threshold`: Token count before an anchor summary is emitted (default: 1000)
+- `--retention-threshold`: Recent tokens (per run) to keep uncompressed (default: 500)
+- `--previous <PATH>`: Override the default `<input>.state.json` file if you need multiple independent states
+
+> **Note:** Incremental mode assumes each invocation only includes *new* content (e.g., the next chat turn or newly appended document section). Feed deltas, not the entire conversation, to get real token savings.
+
+**Example output:**
+```
+Compression Summary:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Original:  15834 tokens
+Compressed: 7800 tokens
+Reduction: 50.7% (8034 tokens saved)
+
+Incremental Mode:
+  Anchors: 3
+  Anchor tokens: 7300
+  Retained tokens: 500
+
+State saved to: conversation.hieratic.json (use --previous for next compression)
+```
+
+### Expand Compressed Prompts
+
+```bash
+tokuin expand compressed.hieratic --output expanded.txt
+```
+
+Or pipe directly to an LLM:
+
+```bash
+tokuin expand compressed.hieratic | your-llm-tool
+```
+
+### Use with Load Testing
+
+Measure cost savings:
+
+```bash
+# Test original prompt
+echo "$(cat original-prompt.txt)" | tokuin load-test --model gpt-4 --runs 100 --estimate-cost
+
+# Test compressed prompt
+tokuin expand compressed.hieratic | tokuin load-test --model gpt-4 --runs 100 --estimate-cost
+```
+
+### Format Specification
+
+See [`docs/HIERATIC_FORMAT.md`](docs/HIERATIC_FORMAT.md) for the complete format specification, design rationale, and advanced examples.
 
 ## 📋 Command Line Options
 
