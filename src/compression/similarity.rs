@@ -33,6 +33,7 @@ pub fn normalized_similarity(text1: &str, text2: &str) -> f64 {
 }
 
 /// Check if two texts are similar above a threshold
+#[allow(dead_code)] // Public API function
 pub fn is_similar(text1: &str, text2: &str, threshold: f64) -> bool {
     normalized_similarity(text1, text2) >= threshold
 }

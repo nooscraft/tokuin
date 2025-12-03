@@ -92,6 +92,7 @@ impl HieraticDocument {
     }
 
     /// Get role content if it exists
+    #[allow(dead_code)] // Public API method
     pub fn get_role(&self) -> Option<(&str, Option<&str>)> {
         self.sections.iter().find_map(|section| match section {
             HieraticSection::Role { id, content } => {
@@ -190,6 +191,7 @@ impl ContextLibrary {
     }
 
     /// Get all patterns of a specific category
+    #[allow(dead_code)] // Public API method
     pub fn patterns_by_category(&self, category: &str) -> Vec<&ContextPattern> {
         self.patterns
             .iter()
@@ -292,6 +294,7 @@ impl CompressionResult {
     }
 
     /// Estimate cost savings for a given model and invocation count
+    #[allow(dead_code)] // Public API method
     pub fn estimate_savings(
         &self,
         input_price_per_1k: f64,
@@ -378,6 +381,7 @@ pub struct PatternMatch {
 
 /// Configuration for compression
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Public API - fields may not all be used internally
 pub struct CompressionConfig {
     /// Compression level
     pub level: CompressionLevel,
@@ -453,6 +457,7 @@ impl std::str::FromStr for ScoringMode {
 
 /// Output format for compression results
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // Public API - may not be used in all code paths
 pub enum OutputFormat {
     /// Hieratic format (.hieratic)
     Hieratic,

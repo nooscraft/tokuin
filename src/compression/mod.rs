@@ -32,7 +32,7 @@ pub mod embeddings;
 pub mod quality;
 
 // Re-export main types (public API - may not all be used internally)
-#[allow(unused_imports)]
+#[allow(unused_imports, dead_code)]
 pub use types::{
     CompressionConfig, CompressionLevel, CompressionResult, ContextLibrary, ContextPattern,
     HieraticDocument, HieraticSection, OutputFormat, ScoringMode,

@@ -1,4 +1,3 @@
-use crate::compression::context_library::ContextLibraryManager;
 /// Quality metrics for compression fidelity
 ///
 /// This module provides metrics to measure how well a compressed prompt
