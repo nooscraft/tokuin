@@ -71,6 +71,7 @@ impl ContextLibraryManager {
     }
 
     /// Add a new pattern to the library
+    #[allow(dead_code)] // Public API method
     pub fn add_pattern(&mut self, pattern: ContextPattern) {
         self.library.add_pattern(pattern);
     }
@@ -81,6 +82,7 @@ impl ContextLibraryManager {
     }
 
     /// Find patterns similar to given content
+    #[allow(dead_code)] // Public API method
     pub fn find_similar_patterns(
         &self,
         content: &str,
@@ -91,28 +93,24 @@ impl ContextLibraryManager {
         self.library
             .patterns
             .iter()
-            .filter_map(|pattern| {
-                let similarity = normalized_similarity(&pattern.content, content);
-                if similarity >= min_similarity {
-                    Some(pattern)
-                } else {
-                    None
-                }
-            })
+            .filter(|pattern| normalized_similarity(&pattern.content, content) >= min_similarity)
             .collect()
     }
 
     /// Get all patterns of a category
+    #[allow(dead_code)] // Public API method
     pub fn patterns_by_category(&self, category: &str) -> Vec<&ContextPattern> {
         self.library.patterns_by_category(category)
     }
 
     /// Update metadata
+    #[allow(dead_code)] // Public API method
     pub fn set_source_directory<P: AsRef<Path>>(&mut self, path: P) {
         self.library.metadata.source_directory = Some(path.as_ref().display().to_string());
     }
 
     /// Merge another library into this one
+    #[allow(dead_code)] // Public API method
     pub fn merge(&mut self, other: &ContextLibrary) {
         for pattern in &other.patterns {
             // Check if pattern already exists
@@ -123,6 +121,7 @@ impl ContextLibraryManager {
     }
 
     /// Remove patterns with frequency below threshold
+    #[allow(dead_code)] // Public API method
     pub fn prune_low_frequency(&mut self, min_frequency: usize) {
         self.library
             .patterns
@@ -131,6 +130,7 @@ impl ContextLibraryManager {
     }
 
     /// Sort patterns by frequency (descending)
+    #[allow(dead_code)] // Public API method
     pub fn sort_by_frequency(&mut self) {
         self.library
             .patterns
@@ -138,6 +138,7 @@ impl ContextLibraryManager {
     }
 
     /// Get library statistics
+    #[allow(dead_code)] // Public API method
     pub fn statistics(&self) -> LibraryStatistics {
         let total_patterns = self.library.patterns.len();
         let total_tokens: usize = self.library.patterns.iter().map(|p| p.avg_tokens).sum();
@@ -169,6 +170,7 @@ impl Default for ContextLibraryManager {
 
 /// Statistics about a context library
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Public API struct
 pub struct LibraryStatistics {
     pub total_patterns: usize,
     pub total_tokens: usize,

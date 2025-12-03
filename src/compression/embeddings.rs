@@ -7,6 +7,9 @@ use crate::error::AppError;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
+/// Type alias for progress callback function
+pub type ProgressCallback = Box<dyn Fn(&str) + Send + Sync>;
+
 /// Trait for embedding providers
 ///
 /// Embedding providers convert text into dense vector representations
@@ -19,11 +22,13 @@ pub trait EmbeddingProvider: Send + Sync {
     ///
     /// Default implementation processes sequentially, but implementations
     /// can override for better performance.
+    #[allow(dead_code)] // Public API trait method
     fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, AppError> {
         texts.iter().map(|text| self.embed(text)).collect()
     }
 
     /// Get the dimension of embeddings produced by this provider
+    #[allow(dead_code)] // Public API trait method
     fn dimension(&self) -> usize;
 
     /// Check if the provider is available and ready to use
@@ -86,11 +91,13 @@ impl EmbeddingCache {
     }
 
     /// Clear the cache
+    #[allow(dead_code)] // Public API method
     pub fn clear(&mut self) {
         self.cache.clear();
     }
 
     /// Get cache size
+    #[allow(dead_code)] // Public API method
     pub fn len(&self) -> usize {
         self.cache.len()
     }
@@ -133,6 +140,7 @@ pub fn normalize_embedding(embedding: &mut [f32]) {
 ///
 /// This allows the code to compile and run without embedding dependencies,
 /// falling back to heuristic scoring.
+#[allow(dead_code)] // Public API struct
 pub struct StubEmbeddingProvider;
 
 impl EmbeddingProvider for StubEmbeddingProvider {
@@ -166,6 +174,7 @@ mod onnx_impl {
         #[cfg(feature = "ort")]
         session: Option<std::sync::Mutex<ort::session::Session>>,
         #[cfg(feature = "ort")]
+        #[allow(dead_code)] // Internal field for tracking model state
         model_loaded: bool,
     }
 
@@ -234,7 +243,7 @@ mod onnx_impl {
         /// Get the model directory, checking bundled location first, then cache
         pub fn model_cache_dir() -> Result<PathBuf, AppError> {
             // Check for bundled models (relative to binary location)
-            if let Some(exe_path) = std::env::current_exe().ok() {
+            if let Ok(exe_path) = std::env::current_exe() {
                 if let Some(exe_dir) = exe_path.parent() {
                     let bundled_path = exe_dir.join("models").join("all-MiniLM-L6-v2");
                     let tokenizer_file = bundled_path.join("tokenizer.json");
@@ -429,9 +438,9 @@ mod onnx_impl {
                             )))
                         })?;
                     } else {
-                        return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
-                            "ONNX model not found in HuggingFace repo. Convert manually using optimum-cli."
-                        ))));
+                        return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                            "ONNX model not found in HuggingFace repo. Convert manually using optimum-cli.".to_string()
+                        )));
                     }
                 }
             }
@@ -452,7 +461,7 @@ mod onnx_impl {
             // Try using reqwest blocking client if available
             #[cfg(feature = "load-test")]
             {
-                return Self::download_via_reqwest(model_path, &tokenizer_url);
+                Self::download_via_reqwest(model_path, &tokenizer_url)
             }
 
             #[cfg(not(feature = "load-test"))]
@@ -579,7 +588,7 @@ mod onnx_impl {
                         )))
                     })?;
                     return Self::embed_with_onnx(
-                        &mut *session,
+                        &mut session,
                         &self.tokenizer,
                         text,
                         self.dimension,
@@ -837,7 +846,7 @@ pub use onnx_impl::OnnxEmbeddingProvider as CandleEmbeddingProvider;
 pub fn download_models(
     force: bool,
     download_onnx: bool,
-    progress_callback: Option<Box<dyn Fn(&str) + Send + Sync>>,
+    progress_callback: Option<ProgressCallback>,
 ) -> Result<std::path::PathBuf, AppError> {
     use onnx_impl::OnnxEmbeddingProvider;
 
@@ -888,7 +897,7 @@ pub fn download_models(
         #[cfg(feature = "hf-hub")]
         {
             // Try to download from HuggingFace first
-            if let Err(_) = OnnxEmbeddingProvider::download_onnx_model(&model_path) {
+            if OnnxEmbeddingProvider::download_onnx_model(&model_path).is_err() {
                 report("⚠️  ONNX model not available in HuggingFace repo.");
                 report("   To convert manually:");
                 report("   pip install optimum[exporters]");

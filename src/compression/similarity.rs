@@ -101,6 +101,7 @@ fn find_char_positions(text: &str, word_start: usize, word_end: usize) -> (usize
 }
 
 /// Calculate Jaccard similarity (useful for comparing sets of words)
+#[allow(dead_code)] // Public API function
 pub fn jaccard_similarity(text1: &str, text2: &str) -> f64 {
     let norm1 = normalize_text(text1);
     let norm2 = normalize_text(text2);
@@ -122,6 +123,7 @@ pub fn jaccard_similarity(text1: &str, text2: &str) -> f64 {
 }
 
 /// Calculate cosine similarity based on word frequency
+#[allow(dead_code)] // Public API function
 pub fn cosine_similarity(text1: &str, text2: &str) -> f64 {
     use std::collections::HashMap;
 

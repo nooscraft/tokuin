@@ -17,6 +17,7 @@ pub enum CompressionLevel {
     Aggressive,
 }
 
+#[allow(clippy::derivable_impls)] // We need Medium as default, not first variant
 impl Default for CompressionLevel {
     fn default() -> Self {
         CompressionLevel::Medium
@@ -180,6 +181,7 @@ impl ContextLibrary {
     }
 
     /// Add a pattern to the library
+    #[allow(dead_code)] // Public API method
     pub fn add_pattern(&mut self, pattern: ContextPattern) {
         self.patterns.push(pattern);
         self.metadata.total_patterns = self.patterns.len();
@@ -333,7 +335,7 @@ pub struct ContextReference {
 }
 
 /// Statistics about extractive compression
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ExtractionStats {
     /// Tokens removed from low-relevance sentences
     pub low_relevance_removed: usize,
@@ -341,16 +343,6 @@ pub struct ExtractionStats {
     pub redundant_removed: usize,
     /// Number of sections compressed
     pub sections_compressed: usize,
-}
-
-impl Default for ExtractionStats {
-    fn default() -> Self {
-        Self {
-            low_relevance_removed: 0,
-            redundant_removed: 0,
-            sections_compressed: 0,
-        }
-    }
 }
 
 /// Cost savings calculation
@@ -376,6 +368,7 @@ pub struct PatternMatch {
     /// End position in text
     pub end: usize,
     /// Similarity score (0.0 to 1.0)
+    #[allow(dead_code)] // Public API field
     pub similarity: f64,
 }
 
@@ -426,20 +419,15 @@ impl Default for CompressionConfig {
 }
 
 /// Scoring mode for compression
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ScoringMode {
     /// Heuristic-based scoring (keyword matching, position-based)
+    #[default]
     Heuristic,
     /// Embedding-based semantic scoring (requires compression-embeddings feature)
     Semantic,
     /// Hybrid: combine embeddings and heuristics (best of both)
     Hybrid,
-}
-
-impl Default for ScoringMode {
-    fn default() -> Self {
-        ScoringMode::Heuristic
-    }
 }
 
 impl std::str::FromStr for ScoringMode {

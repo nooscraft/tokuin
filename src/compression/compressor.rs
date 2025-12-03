@@ -41,6 +41,7 @@ impl Compressor {
     }
 
     /// Set the context library
+    #[allow(dead_code)] // Public API method
     pub fn with_context_library(mut self, library: ContextLibraryManager) -> Self {
         self.context_library = Some(library);
         self
@@ -275,7 +276,7 @@ impl Compressor {
     }
 
     fn reduction_ratio(&self, config: &CompressionConfig) -> f64 {
-        config.target_ratio.unwrap_or_else(|| match config.level {
+        config.target_ratio.unwrap_or(match config.level {
             crate::compression::types::CompressionLevel::Light => 0.35,
             crate::compression::types::CompressionLevel::Medium => 0.55,
             crate::compression::types::CompressionLevel::Aggressive => 0.75,
@@ -388,7 +389,7 @@ impl Compressor {
         let context_savings: usize = context_refs.iter().map(|r| r.tokens_saved).sum();
         let current_tokens = original_tokens.saturating_sub(context_savings);
 
-        let target_ratio = config.target_ratio.unwrap_or_else(|| match config.level {
+        let target_ratio = config.target_ratio.unwrap_or(match config.level {
             crate::compression::types::CompressionLevel::Light => 0.35,
             crate::compression::types::CompressionLevel::Medium => 0.55,
             crate::compression::types::CompressionLevel::Aggressive => 0.75,
@@ -527,7 +528,7 @@ impl Compressor {
             } else {
                 // Short lines might be fragments - accumulate with next line
                 if let Some(last) = sentences.last_mut() {
-                    last.push_str(" ");
+                    last.push(' ');
                     last.push_str(trimmed);
                 } else {
                     sentences.push(trimmed.to_string());
@@ -590,7 +591,7 @@ impl Compressor {
 
         // Length bonus (not too short, not too long)
         let words = sentence.split_whitespace().count();
-        if words >= 5 && words <= 30 {
+        if (5..=30).contains(&words) {
             score += 1.0;
         }
 
@@ -674,6 +675,7 @@ impl Compressor {
     }
 
     /// Compute position-based score
+    #[cfg(feature = "compression-embeddings")]
     fn compute_position_score(&self, _sentence: &str, context: &[&str]) -> f64 {
         // First and last sentences are often more important
         // This is a simplified version - full implementation would track position
@@ -687,7 +689,10 @@ impl Compressor {
     /// Score a sentence using the configured scoring mode
     fn score_sentence(&self, sentence: &str, context: &[&str], config: &CompressionConfig) -> f64 {
         match config.scoring_mode {
-            ScoringMode::Heuristic => self.score_sentence_heuristic(sentence),
+            ScoringMode::Heuristic => {
+                let _ = context; // Context not used in heuristic mode
+                self.score_sentence_heuristic(sentence)
+            }
             #[cfg(feature = "compression-embeddings")]
             ScoringMode::Semantic => self
                 .score_sentence_semantic(sentence, context)
@@ -705,6 +710,7 @@ impl Compressor {
             #[cfg(not(feature = "compression-embeddings"))]
             ScoringMode::Semantic | ScoringMode::Hybrid => {
                 // Fallback to heuristic if embeddings not available
+                let _ = context; // Context not used in heuristic fallback
                 self.score_sentence_heuristic(sentence)
             }
         }
@@ -1003,7 +1009,7 @@ impl Compressor {
 
         // Length bonus (substantial segments are usually important)
         let lines = segment.lines().count();
-        if lines >= 3 && lines <= 20 {
+        if (3..=20).contains(&lines) {
             score += 1.0;
         } else if lines > 20 {
             score += 2.0; // Very substantial sections likely important

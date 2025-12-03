@@ -1165,6 +1165,7 @@ impl Cli {
 
     /// Compress a prompt to Hieratic format
     #[cfg(feature = "compression")]
+    #[allow(clippy::too_many_arguments)] // Compression has many configuration options
     fn run_compress(
         input: String,
         output: Option<String>,
@@ -1498,7 +1499,8 @@ impl Cli {
         eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
         #[cfg(feature = "load-test")]
-        let progress_callback: Option<Box<dyn Fn(&str) + Send + Sync>> = {
+        use crate::compression::embeddings::ProgressCallback;
+        let progress_callback: Option<ProgressCallback> = {
             let pb = ProgressBar::new_spinner();
             pb.set_style(
                 ProgressStyle::default_spinner()

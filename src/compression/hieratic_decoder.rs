@@ -23,6 +23,7 @@ impl HieraticDecoder {
     }
 
     /// Set context library
+    #[allow(dead_code)] // Public API method
     pub fn with_context_library(mut self, library: ContextLibraryManager) -> Self {
         self.context_library = Some(library);
         self

@@ -27,6 +27,7 @@ pub struct QualityMetrics {
 
 impl QualityMetrics {
     /// Create default (no quality data available)
+    #[allow(dead_code)] // Public API method
     pub fn unknown() -> Self {
         Self {
             overall_score: 0.0,

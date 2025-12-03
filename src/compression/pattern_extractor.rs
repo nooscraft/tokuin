@@ -18,6 +18,7 @@ pub struct ExtractionConfig {
     /// Minimum similarity threshold (0.0 to 1.0)
     pub min_similarity: f64,
     /// Categories to extract
+    #[allow(dead_code)] // Public API field
     pub categories: Vec<String>,
     /// Minimum tokens for a pattern to be considered
     pub min_tokens: usize,
@@ -164,7 +165,7 @@ impl PatternExtractor {
             let normalized = normalize_text(trimmed);
             let word_count = normalized.split_whitespace().count();
 
-            if word_count >= 5 && word_count <= 50 {
+            if (5..=50).contains(&word_count) {
                 candidates.push(PatternCandidate {
                     content: trimmed.to_string(),
                     normalized: normalized.clone(),
