@@ -1,6 +1,5 @@
 /// Core data structures for Hieratic prompt compression
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[cfg(feature = "compression")]
 use chrono::{DateTime, Utc};
@@ -281,6 +280,9 @@ pub struct CompressionResult {
     pub document: HieraticDocument,
     /// Compression anchors for incremental compression
     pub anchors: Vec<CompressionAnchor>,
+    /// Quality metrics (if calculated)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quality_metrics: Option<crate::compression::quality::QualityMetrics>,
 }
 
 impl CompressionResult {
@@ -534,6 +536,8 @@ mod tests {
             context_refs: Vec::new(),
             extractive_stats: ExtractionStats::default(),
             document: HieraticDocument::new(),
+            anchors: Vec::new(),
+            quality_metrics: None,
         };
 
         assert_eq!(result.compression_percentage(), 80.0);

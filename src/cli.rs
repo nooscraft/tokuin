@@ -289,6 +289,10 @@ pub enum Command {
         /// Scoring mode (heuristic, semantic, or hybrid)
         #[arg(long, value_enum, default_value = "heuristic")]
         scoring: CompressionScoringMode,
+
+        /// Calculate and display quality metrics
+        #[arg(long)]
+        quality: bool,
     },
 
     /// Expand a Hieratic file back to full prompt
@@ -305,6 +309,30 @@ pub enum Command {
         /// Context library path (default: contexts.toml)
         #[arg(long)]
         context_lib: Option<String>,
+    },
+
+    /// Setup and configure Tokuin
+    #[cfg(feature = "compression-embeddings")]
+    Setup {
+        /// Setup embedding models
+        #[command(subcommand)]
+        subcommand: SetupSubcommand,
+    },
+}
+
+/// Setup subcommands
+#[cfg(feature = "compression-embeddings")]
+#[derive(Subcommand, Debug)]
+pub enum SetupSubcommand {
+    /// Setup embedding models
+    Models {
+        /// Force re-download even if models exist
+        #[arg(long)]
+        force: bool,
+
+        /// Also download/convert ONNX model
+        #[arg(long)]
+        onnx: bool,
     },
 }
 
@@ -512,6 +540,7 @@ impl Cli {
                 model,
                 format,
                 scoring,
+                quality,
             }) => Self::run_compress(
                 input,
                 output,
@@ -526,6 +555,7 @@ impl Cli {
                 model,
                 format,
                 scoring,
+                quality,
             ),
             #[cfg(feature = "compression")]
             Some(Command::Expand {
@@ -533,6 +563,13 @@ impl Cli {
                 output,
                 context_lib,
             }) => Self::run_expand(input, output, context_lib),
+            #[cfg(feature = "compression-embeddings")]
+            Some(Command::Setup { subcommand }) => {
+                use crate::cli::SetupSubcommand;
+                match subcommand {
+                    SetupSubcommand::Models { force, onnx } => Self::run_setup_models(force, onnx),
+                }
+            }
             None => {
                 // Backward compatibility: use flat structure
                 let estimate_args = EstimateArgs {
@@ -1142,11 +1179,14 @@ impl Cli {
         model: String,
         format: CompressionOutputFormat,
         scoring: CompressionScoringMode,
+        quality: bool,
     ) -> Result<(), AppError> {
         use crate::compression::compressor::Compressor;
         use crate::compression::context_library::ContextLibraryManager;
         use crate::compression::hieratic_encoder::HieraticEncoder;
-        use crate::compression::types::{CompressionAnchor, CompressionConfig, CompressionLevel, ScoringMode};
+        use crate::compression::types::{
+            CompressionAnchor, CompressionConfig, CompressionLevel, ScoringMode,
+        };
         use std::fs;
 
         let registry = ModelRegistry::new_with_pricing(None).map_err(AppError::Model)?;
@@ -1192,15 +1232,19 @@ impl Cli {
             match OnnxEmbeddingProvider::new() {
                 Ok(provider) => {
                     eprintln!("✓ Embedding model loaded successfully");
-                    compressor = compressor.with_embeddings(Box::new(provider))
-                        .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
-                            "Failed to initialize embeddings: {}",
-                            e
-                        ))))?;
+                    compressor = compressor
+                        .with_embeddings(Box::new(provider))
+                        .map_err(|e| {
+                            AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                                "Failed to initialize embeddings: {}",
+                                e
+                            )))
+                        })?;
                 }
                 Err(e) => {
                     eprintln!("⚠️  Warning: Embeddings not available ({}), falling back to heuristic scoring", e);
-                    eprintln!("   To use semantic scoring, ensure the embedding model is downloaded.");
+                    eprintln!("   Run 'tokuin setup models' to download embedding models.");
+                    eprintln!("   Continuing with heuristic scoring...");
                 }
             }
         }
@@ -1270,7 +1314,7 @@ impl Cli {
             CompressionOutputFormat::Hieratic => hieratic_output.clone(),
             CompressionOutputFormat::Expanded => {
                 // For expanded, we just output the original
-                prompt
+                prompt.clone()
             }
             CompressionOutputFormat::Json => serde_json::to_string_pretty(&result)
                 .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidJson(e)))?,
@@ -1311,6 +1355,57 @@ impl Cli {
 
         eprintln!("\nOutput: {}", output_path);
         eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        // Calculate and display quality metrics if requested
+        if quality {
+            eprintln!("\nCalculating quality metrics...");
+            match compressor.calculate_quality_metrics(&prompt, &result) {
+                Ok(metrics) => {
+                    eprintln!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    eprintln!("Quality Metrics:");
+                    eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    eprintln!(
+                        "Overall Score: {:.1}% ({})",
+                        metrics.overall_score * 100.0,
+                        metrics.rating()
+                    );
+                    eprintln!(
+                        "  ├─ Semantic Similarity: {:.1}%",
+                        metrics.semantic_similarity * 100.0
+                    );
+                    eprintln!(
+                        "  ├─ Critical Instructions: {}/{} preserved ({:.1}%)",
+                        metrics.critical_patterns_preserved,
+                        metrics.critical_patterns_found,
+                        metrics.critical_instruction_preservation * 100.0
+                    );
+                    eprintln!(
+                        "  ├─ Information Retention: {:.1}%",
+                        metrics.information_retention * 100.0
+                    );
+                    eprintln!(
+                        "  └─ Structural Integrity: {:.1}%",
+                        metrics.structural_integrity * 100.0
+                    );
+
+                    if metrics.is_acceptable() {
+                        eprintln!("\n✅ Quality is acceptable (>= 70%)");
+                    } else {
+                        eprintln!("\n⚠️  Warning: Quality is below recommended threshold (< 70%)");
+                        eprintln!(
+                            "   Consider using --level light or reviewing the compressed output."
+                        );
+                    }
+                    eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Warning: Failed to calculate quality metrics: {}", e);
+                    eprintln!(
+                        "   Compression completed successfully, but quality check was skipped."
+                    );
+                }
+            }
+        }
 
         if incremental {
             if let Some(ref path) = state_file_path {
@@ -1355,7 +1450,6 @@ impl Cli {
         output: Option<String>,
         context_lib: Option<String>,
     ) -> Result<(), AppError> {
-        use crate::compression::context_library::ContextLibraryManager;
         use crate::compression::hieratic_decoder::HieraticDecoder;
         use std::fs;
 
@@ -1390,6 +1484,63 @@ impl Cli {
         }
 
         Ok(())
+    }
+
+    /// Setup embedding models
+    #[cfg(feature = "compression-embeddings")]
+    fn run_setup_models(force: bool, onnx: bool) -> Result<(), AppError> {
+        use crate::compression::embeddings::download_models;
+        #[cfg(feature = "load-test")]
+        use indicatif::{ProgressBar, ProgressStyle};
+
+        eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        eprintln!("Setting up embedding models...");
+        eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        #[cfg(feature = "load-test")]
+        let progress_callback: Option<Box<dyn Fn(&str) + Send + Sync>> = {
+            let pb = ProgressBar::new_spinner();
+            pb.set_style(
+                ProgressStyle::default_spinner()
+                    .template("{spinner:.green} {msg}")
+                    .unwrap(),
+            );
+            pb.enable_steady_tick(std::time::Duration::from_millis(100));
+
+            Some(Box::new(move |msg: &str| {
+                pb.set_message(msg.to_string());
+            }))
+        };
+
+        #[cfg(not(feature = "load-test"))]
+        let progress_callback: Option<Box<dyn Fn(&str) + Send + Sync>> = None;
+
+        match download_models(force, onnx, progress_callback) {
+            Ok(model_path) => {
+                eprintln!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                eprintln!("✓ Models setup complete!");
+                eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                eprintln!("Models location: {:?}", model_path);
+                eprintln!("\nYou can now use --scoring semantic or --scoring hybrid");
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                eprintln!("⚠️  Setup failed: {}", e);
+                eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                eprintln!("\nTroubleshooting:");
+                eprintln!("1. Check your internet connection");
+                eprintln!(
+                    "2. Ensure hf-hub feature is enabled (--features compression-embeddings)"
+                );
+                if onnx {
+                    eprintln!("3. For ONNX model, you may need to convert manually:");
+                    eprintln!("   pip install optimum[exporters]");
+                    eprintln!("   optimum-cli export onnx --model sentence-transformers/all-MiniLM-L6-v2 ./onnx_model/");
+                }
+                Err(e)
+            }
+        }
     }
 
     /// Get input from file, stdin, or argument.

@@ -1,7 +1,7 @@
 /// Context library management
 ///
 /// Handles loading, saving, and querying context libraries
-use crate::compression::types::{ContextLibrary, ContextPattern, LibraryMetadata};
+use crate::compression::types::{ContextLibrary, ContextPattern};
 use crate::error::AppError;
 use std::fs;
 use std::path::Path;
@@ -207,7 +207,7 @@ mod tests {
         manager.add_pattern(pattern);
 
         // Save to temp file
-        let mut temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new().unwrap();
         let temp_path = temp_file.path().to_path_buf();
 
         manager.save_to_file(&temp_path).unwrap();

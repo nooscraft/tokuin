@@ -6,7 +6,6 @@
 use crate::error::AppError;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
 
 /// Trait for embedding providers
 ///
@@ -161,24 +160,13 @@ mod onnx_impl {
     /// ONNX Runtime-based embedding provider using MiniLM model
     ///
     /// Uses ONNX Runtime for fast inference with pre-trained sentence transformer models.
-    /// 
-    /// **Current Status**: Uses placeholder tokenizer-based embeddings.
-    /// Full ONNX model inference is pending API integration with the `ort` crate.
-    /// 
-    /// **To enable full ONNX inference:**
-    /// 1. Download or convert the model to ONNX format (see `download_from_huggingface`)
-    /// 2. Fix the `ort` crate API usage (the API structure differs from expected)
-    /// 3. Update `embed_text()` to use actual ONNX inference instead of placeholder
-    /// 
-    /// The placeholder provides basic semantic signal but is not as accurate as the trained model.
     pub struct OnnxEmbeddingProvider {
         tokenizer: tokenizers::Tokenizer,
         dimension: usize,
         #[cfg(feature = "ort")]
-        #[allow(dead_code)]
+        session: Option<std::sync::Mutex<ort::session::Session>>,
+        #[cfg(feature = "ort")]
         model_loaded: bool,
-        // TODO: Add ONNX session when ort crate API is properly integrated
-        // session: Option<ort::Session>,
     }
 
     impl OnnxEmbeddingProvider {
@@ -200,25 +188,35 @@ mod onnx_impl {
                     )))
                 })?
             } else {
-                return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
-                    "Tokenizer not found. Please ensure tokenizer.json is in the model directory."
-                        .to_string(),
-                )));
+                return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                    "Tokenizer not found at {:?}. Run 'tokuin setup models' to download embedding models.",
+                    tokenizer_file
+                ))));
             };
 
-            // Check if model file exists (for future ONNX integration)
-            // For now, we use placeholder embeddings even if the model file exists
-            // because the ort crate API integration is pending
-            let model_loaded = if model_file.exists() {
-                eprintln!("⚠️  Note: ONNX model file found but full inference is not yet implemented.");
-                eprintln!("   Using placeholder tokenizer-based embeddings for now.");
-                eprintln!("   See documentation in OnnxEmbeddingProvider for integration status.");
-                false
+            // Try to load ONNX model if available
+            #[cfg(feature = "ort")]
+            let (session, model_loaded) = if model_file.exists() {
+                match Self::load_onnx_session(&model_file) {
+                    Ok(sess) => {
+                        eprintln!("✓ ONNX model loaded successfully");
+                        (Some(std::sync::Mutex::new(sess)), true)
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️  Warning: Failed to load ONNX model: {}", e);
+                        eprintln!("   Falling back to placeholder embeddings.");
+                        (None, false)
+                    }
+                }
             } else {
                 eprintln!("⚠️  Note: ONNX model file not found. Using placeholder embeddings.");
-                eprintln!("   To use full model inference (when implemented), download model.onnx from HuggingFace.");
-                false
+                eprintln!("   To use full model inference, run: tokuin setup models --onnx");
+                eprintln!("   Or convert manually: pip install optimum[exporters] && optimum-cli export onnx --model sentence-transformers/all-MiniLM-L6-v2 ./onnx_model/");
+                (None, false)
             };
+
+            #[cfg(not(feature = "ort"))]
+            let (session, model_loaded) = (None, false);
 
             // Get model output dimension from metadata or use default
             let dimension = 384; // all-MiniLM-L6-v2 default dimension
@@ -227,12 +225,26 @@ mod onnx_impl {
                 tokenizer,
                 dimension,
                 #[cfg(feature = "ort")]
+                session,
+                #[cfg(feature = "ort")]
                 model_loaded,
             })
         }
 
-        /// Get the model cache directory
-        fn model_cache_dir() -> Result<PathBuf, AppError> {
+        /// Get the model directory, checking bundled location first, then cache
+        pub fn model_cache_dir() -> Result<PathBuf, AppError> {
+            // Check for bundled models (relative to binary location)
+            if let Some(exe_path) = std::env::current_exe().ok() {
+                if let Some(exe_dir) = exe_path.parent() {
+                    let bundled_path = exe_dir.join("models").join("all-MiniLM-L6-v2");
+                    let tokenizer_file = bundled_path.join("tokenizer.json");
+                    if tokenizer_file.exists() {
+                        return Ok(bundled_path);
+                    }
+                }
+            }
+
+            // Fallback to cache directory
             let cache_dir = dirs::cache_dir()
                 .ok_or_else(|| {
                     AppError::Io(std::io::Error::other(
@@ -277,14 +289,21 @@ mod onnx_impl {
                 }
 
                 if needs_download {
-                    eprintln!("Downloading embedding model from HuggingFace...");
-                    eprintln!("This may take a few minutes on first use.");
-                    
+                    eprintln!("⚠️  Models not found. Run 'tokuin setup models' to download them.");
+                    eprintln!("   Attempting automatic download...");
+                    eprintln!("   This may take a few minutes on first use.");
+
                     // Try download, but don't fail if it doesn't work
                     if let Err(e) = Self::download_from_huggingface(&model_path) {
-                        eprintln!("⚠️  Warning: Could not download model from HuggingFace: {}", e);
+                        eprintln!(
+                            "⚠️  Warning: Could not download model from HuggingFace: {}",
+                            e
+                        );
+                        eprintln!("   Run 'tokuin setup models' to download manually.");
                         eprintln!("   Using placeholder tokenizer-based embeddings for now.");
                         // Continue anyway - we'll use placeholder embeddings
+                    } else {
+                        eprintln!("✓ Models downloaded successfully");
                     }
                 }
             }
@@ -294,39 +313,38 @@ mod onnx_impl {
         }
 
         /// Load ONNX session from model file
-        /// 
-        /// **TODO**: This function is not yet implemented due to ort crate API differences.
-        /// The ort crate (v2.0.0-rc.10) API structure differs from what was expected.
-        /// 
-        /// **What's needed:**
-        /// 1. Research the correct ort crate API for Session creation
-        /// 2. Handle error conversion from ort::Error to AppError
-        /// 3. Properly configure optimization level and threading
-        /// 
-        /// **Resources:**
-        /// - ort crate documentation: https://docs.rs/ort
-        /// - ONNX Runtime C API: https://onnxruntime.ai/docs/api/c/
         #[cfg(feature = "ort")]
-        #[allow(dead_code)]
-        fn load_onnx_session(_model_path: &Path) -> Result<(), AppError> {
-            // TODO: Implement ONNX session loading
-            // The ort crate API needs to be properly integrated
-            Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
-                "ONNX session loading not yet implemented. See function documentation.".to_string(),
-            )))
+        fn load_onnx_session(model_path: &Path) -> Result<ort::session::Session, AppError> {
+            use ort::session::Session;
+
+            // Create session builder with optimization
+            let builder = Session::builder().map_err(|e| {
+                AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                    "Failed to create ONNX session builder: {}",
+                    e
+                )))
+            })?;
+
+            let session = builder.commit_from_file(model_path).map_err(|e| {
+                AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                    "Failed to load ONNX model from {:?}: {}",
+                    model_path, e
+                )))
+            })?;
+
+            Ok(session)
         }
 
         /// Download model files from HuggingFace
         /// Uses hf-hub if available, falls back to direct HTTP download
         #[cfg(feature = "hf-hub")]
         fn download_from_huggingface(model_path: &Path) -> Result<(), AppError> {
-            use hf_hub::api::sync::Api;
             let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-            let dest_tokenizer = model_path.join("tokenizer.json");
+            let _tokenizer_file = model_path.join("tokenizer.json");
 
             // Try hf-hub first
             eprintln!("Attempting download via hf-hub...");
-            match Self::download_via_hf_hub(model_path, model_id) {
+            match Self::download_via_hf_hub(model_path, model_id, true, false) {
                 Ok(()) => {
                     eprintln!("✓ Tokenizer downloaded successfully via hf-hub");
                     return Ok(());
@@ -341,12 +359,31 @@ mod onnx_impl {
             Self::download_via_http(model_path, model_id)
         }
 
+        /// Download tokenizer from HuggingFace
+        #[cfg(feature = "hf-hub")]
+        pub fn download_tokenizer(model_path: &Path) -> Result<(), AppError> {
+            let model_id = "sentence-transformers/all-MiniLM-L6-v2";
+            Self::download_via_hf_hub(model_path, model_id, true, false)
+        }
+
+        /// Download ONNX model from HuggingFace (if available)
+        #[cfg(feature = "hf-hub")]
+        pub fn download_onnx_model(model_path: &Path) -> Result<(), AppError> {
+            let model_id = "sentence-transformers/all-MiniLM-L6-v2";
+            Self::download_via_hf_hub(model_path, model_id, false, true)
+        }
+
         /// Download using hf-hub crate
-        /// 
+        ///
         /// Downloads the tokenizer (required) and attempts to download the ONNX model
         /// (optional, for future full inference support).
         #[cfg(feature = "hf-hub")]
-        fn download_via_hf_hub(model_path: &Path, model_id: &str) -> Result<(), AppError> {
+        fn download_via_hf_hub(
+            model_path: &Path,
+            model_id: &str,
+            download_tokenizer: bool,
+            download_onnx: bool,
+        ) -> Result<(), AppError> {
             use hf_hub::api::sync::Api;
 
             let api = Api::new().map_err(|e| {
@@ -357,45 +394,45 @@ mod onnx_impl {
             })?;
 
             let repo = api.model(model_id.to_string());
-            
+
             // Download tokenizer (required for placeholder embeddings)
-            let tokenizer_file = model_path.join("tokenizer.json");
-            if !tokenizer_file.exists() {
-                let tokenizer_path = repo.get("tokenizer.json").map_err(|e| {
-                    AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
-                        "hf-hub tokenizer download failed: {}",
-                        e
-                    )))
-                })?;
-                std::fs::copy(&tokenizer_path, &tokenizer_file).map_err(|e| {
-                    AppError::Io(std::io::Error::other(format!(
-                        "Failed to copy tokenizer: {}",
-                        e
-                    )))
-                })?;
-                eprintln!("✓ Tokenizer downloaded");
+            if download_tokenizer {
+                let tokenizer_file = model_path.join("tokenizer.json");
+                if !tokenizer_file.exists() {
+                    let tokenizer_path = repo.get("tokenizer.json").map_err(|e| {
+                        AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                            "hf-hub tokenizer download failed: {}",
+                            e
+                        )))
+                    })?;
+                    std::fs::copy(&tokenizer_path, &tokenizer_file).map_err(|e| {
+                        AppError::Io(std::io::Error::other(format!(
+                            "Failed to copy tokenizer: {}",
+                            e
+                        )))
+                    })?;
+                }
             }
 
             // Try to download ONNX model (for future full inference support)
             // Note: Most sentence-transformers models don't have pre-converted ONNX files
             // Users will need to convert them manually using optimum-cli
-            let model_file = model_path.join("model.onnx");
-            if !model_file.exists() {
-                // Check if ONNX model exists in the repo (unlikely for most models)
-                if let Ok(onnx_path) = repo.get("model.onnx") {
-                    std::fs::copy(&onnx_path, &model_file).map_err(|e| {
-                        AppError::Io(std::io::Error::other(format!(
-                            "Failed to copy ONNX model: {}",
-                            e
-                        )))
-                    })?;
-                    eprintln!("✓ ONNX model downloaded");
-                } else {
-                    eprintln!("⚠️  Note: ONNX model not found in HuggingFace repo.");
-                    eprintln!("   For full ONNX inference (when implemented), convert the model:");
-                    eprintln!("   pip install optimum[exporters]");
-                    eprintln!("   optimum-cli export onnx --model {} ./onnx_model/", model_id);
-                    eprintln!("   Then copy model.onnx to: {:?}", model_file);
+            if download_onnx {
+                let model_file = model_path.join("model.onnx");
+                if !model_file.exists() {
+                    // Check if ONNX model exists in the repo (unlikely for most models)
+                    if let Ok(onnx_path) = repo.get("model.onnx") {
+                        std::fs::copy(&onnx_path, &model_file).map_err(|e| {
+                            AppError::Io(std::io::Error::other(format!(
+                                "Failed to copy ONNX model: {}",
+                                e
+                            )))
+                        })?;
+                    } else {
+                        return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                            "ONNX model not found in HuggingFace repo. Convert manually using optimum-cli."
+                        ))));
+                    }
                 }
             }
 
@@ -405,8 +442,6 @@ mod onnx_impl {
         /// Download using direct HTTP (fallback when hf-hub fails)
         #[cfg(feature = "hf-hub")]
         fn download_via_http(model_path: &Path, model_id: &str) -> Result<(), AppError> {
-            use std::io::Write;
-
             let tokenizer_url = format!(
                 "https://huggingface.co/{}/resolve/main/tokenizer.json",
                 model_id
@@ -420,33 +455,37 @@ mod onnx_impl {
                 return Self::download_via_reqwest(model_path, &tokenizer_url);
             }
 
-            // Fallback: provide manual download instructions
-            let dest_path = model_path.join("tokenizer.json");
-            eprintln!("⚠️  HTTP client not available. Please download manually:");
-            eprintln!("   curl -L {} -o {:?}", tokenizer_url, dest_path);
-            eprintln!("\n   Or use: wget {} -O {:?}", tokenizer_url, dest_path);
+            #[cfg(not(feature = "load-test"))]
+            {
+                // Fallback: provide manual download instructions
+                let dest_path = model_path.join("tokenizer.json");
+                eprintln!("⚠️  HTTP client not available. Please download manually:");
+                eprintln!("   curl -L {} -o {:?}", tokenizer_url, dest_path);
+                eprintln!("\n   Or use: wget {} -O {:?}", tokenizer_url, dest_path);
 
-            Err(AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
-                "Please download tokenizer.json manually from {} to {:?}",
-                tokenizer_url, dest_path
-            ))))
+                Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                    format!(
+                        "Please download tokenizer.json manually from {} to {:?}",
+                        tokenizer_url, dest_path
+                    ),
+                )))
+            }
         }
 
         /// Download using reqwest (requires blocking feature) or curl fallback
         #[cfg(all(feature = "hf-hub", feature = "load-test"))]
         fn download_via_reqwest(model_path: &Path, url: &str) -> Result<(), AppError> {
-            use std::io::Write;
             use std::process::Command;
 
             // Try using curl first (simpler and more reliable)
             let dest_path = model_path.join("tokenizer.json");
             eprintln!("Attempting download via curl...");
-            
+
             let curl_result = Command::new("curl")
-                .arg("-L")  // Follow redirects
-                .arg("-f")  // Fail on HTTP errors
-                .arg("-s")  // Silent mode
-                .arg("-S")  // Show errors
+                .arg("-L") // Follow redirects
+                .arg("-f") // Fail on HTTP errors
+                .arg("-s") // Silent mode
+                .arg("-S") // Show errors
                 .arg(url)
                 .arg("-o")
                 .arg(&dest_path)
@@ -476,6 +515,8 @@ mod onnx_impl {
             })?;
 
             rt.block_on(async {
+                use std::io::Write;
+
                 let client = reqwest::Client::builder()
                     .timeout(std::time::Duration::from_secs(60))
                     .build()
@@ -494,10 +535,9 @@ mod onnx_impl {
                 })?;
 
                 if !response.status().is_success() {
-                    return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
-                        "HTTP request failed with status: {}",
-                        response.status()
-                    ))));
+                    return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                        format!("HTTP request failed with status: {}", response.status()),
+                    )));
                 }
 
                 let content = response.bytes().await.map_err(|e| {
@@ -526,22 +566,188 @@ mod onnx_impl {
         }
 
         /// Generate embedding for a single text
-        /// 
-        /// **Current Implementation**: Uses placeholder tokenizer-based embeddings.
-        /// 
-        /// **Future**: Will use ONNX model inference when fully integrated.
-        /// The placeholder provides basic semantic signal but is not as accurate
-        /// as the trained model embeddings.
+        ///
+        /// Uses ONNX model inference if available, otherwise falls back to placeholder.
         fn embed_text(&self, text: &str) -> Result<Vec<f32>, AppError> {
-            // TODO: When ONNX integration is complete, check if model is loaded
-            // and use embed_with_onnx() instead of embed_placeholder()
-            
-            // Current: Always use placeholder
+            #[cfg(feature = "ort")]
+            {
+                if let Some(session_mutex) = &self.session {
+                    let mut session = session_mutex.lock().map_err(|e| {
+                        AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                            "Failed to lock ONNX session: {}",
+                            e
+                        )))
+                    })?;
+                    return Self::embed_with_onnx(
+                        &mut *session,
+                        &self.tokenizer,
+                        text,
+                        self.dimension,
+                    );
+                }
+            }
+
+            // Fallback to placeholder implementation
             Self::embed_placeholder(&self.tokenizer, text, self.dimension)
         }
 
+        /// Generate embedding using ONNX model inference
+        #[cfg(feature = "ort")]
+        fn embed_with_onnx(
+            session: &mut ort::session::Session,
+            tokenizer: &tokenizers::Tokenizer,
+            text: &str,
+            dimension: usize,
+        ) -> Result<Vec<f32>, AppError> {
+            use ort::inputs;
+
+            // Tokenize the input
+            let encoding = tokenizer.encode(text, true).map_err(|e| {
+                AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                    "Tokenization failed: {}",
+                    e
+                )))
+            })?;
+
+            let ids = encoding.get_ids();
+            let attention_mask = encoding.get_attention_mask();
+
+            // Convert to arrays for ONNX Runtime
+            // MiniLM models typically use max_length of 512
+            let max_length = 512;
+            let mut input_ids = vec![0i64; max_length];
+            let mut attention_mask_arr = vec![0i64; max_length];
+
+            for (i, &id) in ids.iter().take(max_length).enumerate() {
+                input_ids[i] = id as i64;
+                attention_mask_arr[i] = attention_mask.get(i).copied().unwrap_or(0) as i64;
+            }
+
+            // Create ONNX input tensors from vectors
+            // ort::value::Value::from_array accepts (shape, Vec<T>) format
+            use ort::value::Value;
+
+            let input_ids_value = Value::from_array(([1, max_length], input_ids)).map_err(|e| {
+                AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                    "Failed to create input_ids tensor: {}",
+                    e
+                )))
+            })?;
+
+            let attention_mask_value = Value::from_array(([1, max_length], attention_mask_arr))
+                .map_err(|e| {
+                    AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                        "Failed to create attention_mask tensor: {}",
+                        e
+                    )))
+                })?;
+
+            // Create inputs using ort::inputs macro
+            let inputs = inputs! {
+                "input_ids" => input_ids_value,
+                "attention_mask" => attention_mask_value,
+            };
+
+            // Run inference
+            let outputs = session.run(inputs).map_err(|e| {
+                AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                    "ONNX inference failed: {}",
+                    e
+                )))
+            })?;
+
+            // Extract embeddings from output
+            // For sentence-transformers, the output is typically the last hidden state
+            // We need to get the pooled output (usually CLS token or mean pooling)
+            // The output key might be "last_hidden_state" or the model might output pooled directly
+            let output_key = outputs
+                .keys()
+                .find(|k| k.contains("hidden") || k.contains("pooler") || k.contains("output"))
+                .or_else(|| outputs.keys().next())
+                .ok_or_else(|| {
+                    AppError::Parse(crate::error::ParseError::InvalidFormat(
+                        "No output found in ONNX inference results".to_string(),
+                    ))
+                })?;
+
+            let output_value = outputs.get(output_key).ok_or_else(|| {
+                AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                    "Output key '{}' not found",
+                    output_key
+                )))
+            })?;
+
+            // Extract tensor data from Value using try_extract_tensor
+            // This is the correct method according to ort crate v2.0.0-rc.10 documentation
+            // try_extract_tensor returns (&Shape, &[T]) tuple
+            let (output_shape_ref, output_slice) =
+                output_value.try_extract_tensor::<f32>().map_err(|e| {
+                    AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                        "Failed to extract tensor from output: {}",
+                        e
+                    )))
+                })?;
+
+            // Convert shape to Vec<usize>
+            let output_shape_actual: Vec<usize> =
+                output_shape_ref.iter().map(|&d| d as usize).collect();
+
+            let mut embedding = Vec::with_capacity(dimension);
+
+            // Handle different output shapes
+            // Access data from the slice using manual indexing based on shape
+            if output_shape_actual.len() == 3 {
+                // [batch, seq_len, hidden] - take mean pooling over sequence dimension
+                let batch_size = output_shape_actual[0];
+                let seq_len = output_shape_actual[1];
+                let hidden_size = output_shape_actual[2];
+
+                // Mean pooling: average over sequence length
+                for d in 0..dimension.min(hidden_size) {
+                    let mut sum = 0.0f32;
+                    let mut count = 0;
+                    for b in 0..batch_size {
+                        for s in 0..seq_len {
+                            let idx = (b * seq_len * hidden_size) + (s * hidden_size) + d;
+                            if idx < output_slice.len() {
+                                sum += output_slice[idx];
+                                count += 1;
+                            }
+                        }
+                    }
+                    embedding.push(if count > 0 { sum / count as f32 } else { 0.0 });
+                }
+            } else if output_shape_actual.len() == 2 {
+                // [batch, hidden] - already pooled
+                let hidden_size = output_shape_actual[1];
+                for d in 0..dimension.min(hidden_size) {
+                    let idx = d; // First batch element, dimension d
+                    if idx < output_slice.len() {
+                        embedding.push(output_slice[idx]);
+                    } else {
+                        embedding.push(0.0);
+                    }
+                }
+            } else {
+                return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                    format!("Unexpected output shape: {:?}", output_shape_actual),
+                )));
+            }
+
+            // Pad or truncate to expected dimension
+            while embedding.len() < dimension {
+                embedding.push(0.0);
+            }
+            embedding.truncate(dimension);
+
+            // Normalize to unit vector
+            normalize_embedding(&mut embedding);
+
+            Ok(embedding)
+        }
+
         /// Generate placeholder embedding using tokenizer-based features
-        /// 
+        ///
         /// This creates embeddings based on token frequencies, positions, and word hashes.
         /// While not as accurate as the trained model, it provides some semantic signal
         /// for compression scoring.
@@ -560,10 +766,10 @@ mod onnx_impl {
 
             // Create a simple embedding based on token frequencies and positions
             let mut embedding = vec![0.0f32; dimension];
-            
+
             let ids = encoding.get_ids();
             let attention_mask = encoding.get_attention_mask();
-            
+
             // Simple TF-IDF-like embedding from tokens
             for (idx, &token_id) in ids.iter().enumerate() {
                 if idx < dimension && attention_mask.get(idx).copied().unwrap_or(0) > 0 {
@@ -573,7 +779,7 @@ mod onnx_impl {
                     embedding[idx] += value * 0.1; // Small contribution per token
                 }
             }
-            
+
             // Add position-based features
             let text_lower = text.to_lowercase();
             let words: Vec<&str> = text_lower.split_whitespace().collect();
@@ -584,7 +790,7 @@ mod onnx_impl {
                 let value = ((hash % 10000) as f32 / 10000.0) * 2.0 - 1.0;
                 embedding[i] += value * 0.05;
             }
-            
+
             // Normalize to unit vector
             normalize_embedding(&mut embedding);
 
@@ -618,8 +824,86 @@ mod onnx_impl {
 pub use onnx_impl::OnnxEmbeddingProvider;
 
 // Keep CandleEmbeddingProvider as alias for backward compatibility
+// Note: This is kept for API compatibility but may not be used in all code paths
 #[cfg(feature = "compression-embeddings")]
+#[allow(unused_imports)]
 pub use onnx_impl::OnnxEmbeddingProvider as CandleEmbeddingProvider;
+
+/// Download embedding models with optional progress reporting
+///
+/// Downloads the tokenizer (required) and optionally the ONNX model.
+/// Returns the path to the model directory.
+#[cfg(feature = "compression-embeddings")]
+pub fn download_models(
+    force: bool,
+    download_onnx: bool,
+    progress_callback: Option<Box<dyn Fn(&str) + Send + Sync>>,
+) -> Result<std::path::PathBuf, AppError> {
+    use onnx_impl::OnnxEmbeddingProvider;
+
+    let model_path = OnnxEmbeddingProvider::model_cache_dir()?;
+    let tokenizer_file = model_path.join("tokenizer.json");
+    let model_file = model_path.join("model.onnx");
+
+    let report = |msg: &str| {
+        if let Some(ref cb) = progress_callback {
+            cb(msg);
+        } else {
+            eprintln!("{}", msg);
+        }
+    };
+
+    // Download tokenizer if needed
+    if force || !tokenizer_file.exists() {
+        if tokenizer_file.exists() && force {
+            report("Re-downloading tokenizer...");
+        } else {
+            report("Downloading tokenizer...");
+        }
+
+        #[cfg(feature = "hf-hub")]
+        {
+            OnnxEmbeddingProvider::download_tokenizer(&model_path)?;
+            report("✓ Tokenizer downloaded successfully");
+        }
+
+        #[cfg(not(feature = "hf-hub"))]
+        {
+            return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                "hf-hub feature not enabled. Cannot download models.".to_string(),
+            )));
+        }
+    } else {
+        report("✓ Tokenizer already exists");
+    }
+
+    // Download/convert ONNX model if requested
+    if download_onnx && (force || !model_file.exists()) {
+        if model_file.exists() && force {
+            report("Re-downloading ONNX model...");
+        } else {
+            report("Downloading/converting ONNX model...");
+        }
+
+        #[cfg(feature = "hf-hub")]
+        {
+            // Try to download from HuggingFace first
+            if let Err(_) = OnnxEmbeddingProvider::download_onnx_model(&model_path) {
+                report("⚠️  ONNX model not available in HuggingFace repo.");
+                report("   To convert manually:");
+                report("   pip install optimum[exporters]");
+                report("   optimum-cli export onnx --model sentence-transformers/all-MiniLM-L6-v2 ./onnx_model/");
+                report(&format!("   Then copy model.onnx to: {:?}", model_file));
+            } else {
+                report("✓ ONNX model downloaded successfully");
+            }
+        }
+    } else if model_file.exists() {
+        report("✓ ONNX model already exists");
+    }
+
+    Ok(model_path)
+}
 
 #[cfg(test)]
 mod tests {
@@ -653,9 +937,7 @@ mod tests {
         assert_eq!(cache.len(), 0);
 
         // Attempting to get from cache will fail (stub provider)
-        let result = cache.get_or_compute("test", &provider, |_| {
-            Ok(vec![0.1, 0.2, 0.3])
-        });
+        let result = cache.get_or_compute("test", &provider, |_| Ok(vec![0.1, 0.2, 0.3]));
         assert!(result.is_ok());
         assert_eq!(cache.len(), 1);
 
@@ -667,4 +949,3 @@ mod tests {
         assert_eq!(result2.unwrap(), vec![0.1, 0.2, 0.3]); // Should return cached value
     }
 }
-

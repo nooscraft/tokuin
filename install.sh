@@ -4,6 +4,22 @@ set -euo pipefail
 
 REPO="nooscraft/tokuin"
 API_URL="https://api.github.com/repos/${REPO}/releases/latest"
+SKIP_MODELS=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --skip-models)
+      SKIP_MODELS=true
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      echo "Usage: $0 [--skip-models]" >&2
+      exit 1
+      ;;
+  esac
+done
 
 for cmd in curl tar; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -159,4 +175,20 @@ case ":$PATH:" in
 esac
 
 echo "Done!"
+
+# Optionally setup embedding models
+if [ "$SKIP_MODELS" = false ]; then
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Setting up embedding models..."
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  if "$install_path" setup models 2>&1; then
+    echo "✓ Models setup complete!"
+  else
+    echo "⚠️  Model setup failed or skipped. You can run 'tokuin setup models' later."
+  fi
+else
+  echo ""
+  echo "Skipping model setup. Run 'tokuin setup models' to download embedding models."
+fi
 

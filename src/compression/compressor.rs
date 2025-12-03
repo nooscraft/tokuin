@@ -2,7 +2,6 @@
 ///
 /// Coordinates pattern matching, extractive compression, and Hieratic encoding
 use crate::compression::context_library::ContextLibraryManager;
-use crate::compression::hieratic_encoder::HieraticEncoder;
 use crate::compression::similarity::find_best_match;
 use crate::compression::types::{
     CompressionConfig, CompressionResult, ContextReference, ExtractionStats, HieraticDocument,
@@ -12,7 +11,7 @@ use crate::error::AppError;
 use crate::tokenizers::Tokenizer;
 
 #[cfg(feature = "compression-embeddings")]
-use crate::compression::embeddings::{EmbeddingProvider, EmbeddingCache, cosine_similarity};
+use crate::compression::embeddings::{cosine_similarity, EmbeddingCache, EmbeddingProvider};
 
 /// Main compressor that orchestrates the compression pipeline
 pub struct Compressor {
@@ -49,7 +48,7 @@ impl Compressor {
 
     /// Set the embedding provider for semantic scoring
     #[cfg(feature = "compression-embeddings")]
-    pub fn with_embeddings(mut self, provider: Box<dyn EmbeddingProvider>) -> Result<Self, AppError> {
+    pub fn with_embeddings(self, provider: Box<dyn EmbeddingProvider>) -> Result<Self, AppError> {
         if !provider.is_available() {
             return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
                 "Embedding provider is not available".to_string(),
@@ -183,7 +182,8 @@ impl Compressor {
             context_refs,
             extractive_stats: extraction_stats,
             document,
-            anchors: Vec::new(), // Will be populated in incremental mode
+            anchors: Vec::new(),   // Will be populated in incremental mode
+            quality_metrics: None, // Will be calculated if requested
         })
     }
 
@@ -270,6 +270,7 @@ impl Compressor {
             extractive_stats: ExtractionStats::default(),
             document,
             anchors,
+            quality_metrics: None, // Will be calculated if requested
         })
     }
 
@@ -504,17 +505,20 @@ impl Compressor {
         // First, split by newlines to preserve structure (instructions often have line breaks)
         let lines: Vec<&str> = text.lines().collect();
         let mut sentences = Vec::new();
-        
+
         for line in lines {
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 continue;
             }
-            
+
             // If line ends with punctuation, it's likely a complete sentence
             if trimmed.ends_with('.') || trimmed.ends_with('!') || trimmed.ends_with('?') {
                 sentences.push(trimmed.to_string());
-            } else if trimmed.starts_with('-') || trimmed.starts_with('*') || trimmed.starts_with("•") {
+            } else if trimmed.starts_with('-')
+                || trimmed.starts_with('*')
+                || trimmed.starts_with("•")
+            {
                 // Bullet points are complete units
                 sentences.push(trimmed.to_string());
             } else if trimmed.len() > 20 {
@@ -530,16 +534,16 @@ impl Compressor {
                 }
             }
         }
-        
+
         // If we didn't get good splits from lines, fall back to period-based splitting
         if sentences.len() < text.matches('.').count() / 3 {
             // Split by sentence-ending punctuation, but be smarter about it
             let mut current = String::new();
             let chars: Vec<char> = text.chars().collect();
-            
+
             for (i, &ch) in chars.iter().enumerate() {
                 current.push(ch);
-                
+
                 // Check if this is a sentence ending
                 if (ch == '.' || ch == '!' || ch == '?') && i + 1 < chars.len() {
                     let next_ch = chars[i + 1];
@@ -553,13 +557,13 @@ impl Compressor {
                     }
                 }
             }
-            
+
             // Add remaining text
             if !current.trim().is_empty() && current.trim().len() > 5 {
                 sentences.push(current.trim().to_string());
             }
         }
-        
+
         // Filter out very short fragments and normalize
         sentences
             .into_iter()
@@ -610,11 +614,7 @@ impl Compressor {
 
     /// Score a sentence using semantic embeddings
     #[cfg(feature = "compression-embeddings")]
-    fn score_sentence_semantic(
-        &self,
-        sentence: &str,
-        context: &[&str],
-    ) -> Result<f64, AppError> {
+    fn score_sentence_semantic(&self, sentence: &str, context: &[&str]) -> Result<f64, AppError> {
         let provider = self.embedding_provider.as_ref().ok_or_else(|| {
             #[cfg(feature = "load-test")]
             {
@@ -629,9 +629,10 @@ impl Compressor {
         })?;
 
         // Get embedding for the sentence
-        let sentence_emb = self.embedding_cache.borrow_mut().get_or_compute(sentence, &**provider, |text| {
-            provider.embed(text)
-        })?;
+        let sentence_emb =
+            self.embedding_cache
+                .borrow_mut()
+                .get_or_compute(sentence, &**provider, |text| provider.embed(text))?;
 
         // 1. Similarity to critical patterns
         let max_similarity = if !self.critical_patterns.is_empty() {
@@ -657,7 +658,11 @@ impl Compressor {
 
     /// Compute information density of a sentence
     #[cfg(feature = "compression-embeddings")]
-    fn compute_information_density(&self, sentence: &str, _context: &[&str]) -> Result<f64, AppError> {
+    fn compute_information_density(
+        &self,
+        sentence: &str,
+        _context: &[&str],
+    ) -> Result<f64, AppError> {
         // Simplified: longer sentences with more unique words have higher density
         let words: Vec<&str> = sentence.split_whitespace().collect();
         let unique_words: std::collections::HashSet<&str> = words.iter().cloned().collect();
@@ -684,10 +689,9 @@ impl Compressor {
         match config.scoring_mode {
             ScoringMode::Heuristic => self.score_sentence_heuristic(sentence),
             #[cfg(feature = "compression-embeddings")]
-            ScoringMode::Semantic => {
-                self.score_sentence_semantic(sentence, context)
-                    .unwrap_or_else(|_| self.score_sentence_heuristic(sentence))
-            }
+            ScoringMode::Semantic => self
+                .score_sentence_semantic(sentence, context)
+                .unwrap_or_else(|_| self.score_sentence_heuristic(sentence)),
             #[cfg(feature = "compression-embeddings")]
             ScoringMode::Hybrid => {
                 let heuristic_score = self.score_sentence_heuristic(sentence);
@@ -877,7 +881,7 @@ impl Compressor {
         ];
 
         let mut pattern_id = 0;
-        for (pattern_regex, pattern_name) in patterns.iter() {
+        for (_pattern_regex, pattern_name) in patterns.iter() {
             // Simple substring matching for common phrases
             let common_phrases = [
                 "Extract Full Text Values:",
@@ -1085,6 +1089,29 @@ impl Compressor {
 
         Ok(total)
     }
+
+    /// Calculate quality metrics for a compression result
+    ///
+    /// This expands the compressed prompt and compares it to the original
+    /// to measure semantic similarity, critical instruction preservation, etc.
+    pub fn calculate_quality_metrics(
+        &self,
+        original: &str,
+        result: &CompressionResult,
+    ) -> Result<crate::compression::quality::QualityMetrics, AppError> {
+        use crate::compression::hieratic_encoder::HieraticEncoder;
+        use crate::compression::quality::calculate_quality_metrics;
+
+        // Encode the Hieratic document to text
+        let encoder = HieraticEncoder::new();
+        let compressed_hieratic = encoder.encode(&result.document)?;
+
+        // Calculate quality metrics
+        let context_lib_path = result.document.context_path.as_deref();
+        let metrics = calculate_quality_metrics(original, &compressed_hieratic, context_lib_path)?;
+
+        Ok(metrics)
+    }
 }
 
 #[cfg(test)]
@@ -1118,9 +1145,12 @@ mod tests {
     fn test_score_sentence() {
         let tokenizer = create_test_tokenizer();
         let compressor = Compressor::new(tokenizer);
+        let config = CompressionConfig::default();
+        let context: &[&str] = &[];
 
-        let high_score = compressor.score_sentence("This is important to analyze");
-        let low_score = compressor.score_sentence("Just a simple sentence");
+        let high_score =
+            compressor.score_sentence("This is important to analyze", context, &config);
+        let low_score = compressor.score_sentence("Just a simple sentence", context, &config);
 
         assert!(high_score > low_score);
     }

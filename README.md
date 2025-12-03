@@ -28,6 +28,18 @@ curl -fsSL https://raw.githubusercontent.com/nooscraft/tokuin/main/install.sh | 
 
 The script detects your platform, downloads the latest release, verifies its checksum, and installs `tokuin` to `/usr/local/bin` (or `~/.local/bin` if root access is unavailable).
 
+**What you get**: The release binary includes **all features** enabled:
+- ✅ Token counting and cost estimation
+- ✅ Prompt compression with Hieratic format
+- ✅ Semantic scoring with ONNX embeddings
+- ✅ Quality metrics
+- ✅ Load testing capabilities
+- ✅ Markdown support
+- ✅ Watch mode
+- ✅ Gemini tokenization
+
+**Note**: Release binaries include embedding models bundled, so compression features work immediately without running `tokuin setup models`. The script optionally runs `tokuin setup models` after installation (set `TOKUIN_SETUP_MODELS=1` to enable, or use `--skip-models` to disable).
+
 ### Quick Install (Windows PowerShell)
 
 ```powershell
@@ -36,8 +48,21 @@ irm https://raw.githubusercontent.com/nooscraft/tokuin/main/install.ps1 | iex
 
 By default the binary is placed in `%LOCALAPPDATA%\Programs\tokuin`. To customize the destination, download the script first (`irm ... -OutFile install.ps1`) and invoke `.\install.ps1 -InstallDir "C:\Tools"`.
 
+**What you get**: The release binary includes **all features** enabled:
+- ✅ Token counting and cost estimation
+- ✅ Prompt compression with Hieratic format
+- ✅ Semantic scoring with ONNX embeddings
+- ✅ Quality metrics
+- ✅ Load testing capabilities
+- ✅ Markdown support
+- ✅ Watch mode
+- ✅ Gemini tokenization
+
+**Note**: Release binaries include embedding models bundled, so compression features work immediately without running `tokuin setup models`. The script optionally runs `tokuin setup models` after installation (set `$env:TOKUIN_SETUP_MODELS=1` to enable, or use `-SkipModels` to disable).
+
 ### From Source
 
+**Basic build (token counting only):**
 ```bash
 git clone https://github.com/nooscraft/tokuin.git
 cd tokuin
@@ -46,9 +71,35 @@ cargo build --release
 
 The binary will be available at `target/release/tokuin`.
 
+**Build with all features (recommended):**
+```bash
+cargo build --release --features all
+```
+
+This includes compression, embeddings, load testing, markdown support, watch mode, and Gemini tokenization.
+
+**After building, setup embedding models (if using compression features):**
+```bash
+./target/release/tokuin setup models
+```
+
+For more details, see the [Build from Source](#-build-from-source-power-users) section below.
+
 ### From Releases
 
 Release archives are published for each tag at [GitHub Releases](https://github.com/nooscraft/tokuin/releases). Download the archive matching your OS/architecture, verify it against `checksums.txt`, and place the `tokuin` binary somewhere on your `PATH` (e.g., `/usr/local/bin` or `%LOCALAPPDATA%\Programs\tokuin`).
+
+**What you get**: Release binaries are built with `--features all`, so they include **all features**:
+- ✅ Token counting and cost estimation
+- ✅ Prompt compression with Hieratic format
+- ✅ Semantic scoring with ONNX embeddings
+- ✅ Quality metrics
+- ✅ Load testing capabilities
+- ✅ Markdown support
+- ✅ Watch mode
+- ✅ Gemini tokenization
+
+**Note**: Release binaries include embedding models bundled, so they work immediately without running `tokuin setup models`. This is the easiest way to get started with all features.
 
 ## 📖 Usage
 
@@ -255,7 +306,7 @@ tokuin load-test \
 Pricing for a handful of popular OpenAI/Gemini models ships in-tree, but rates move quickly. Supply your own TOML file to keep cost projections accurate:
 
 ```bash
-cp docs/PRICING_TEMPLATE.toml pricing.toml
+cp PRICING_TEMPLATE.toml pricing.toml
 # edit pricing.toml with the latest numbers
 
 tokuin --pricing-file pricing.toml --model gpt-4 --price prompt.txt
@@ -300,9 +351,26 @@ Named after ancient Egypt's compressed cursive writing (a practical simplificati
 
 ### Workflow
 
-1. **Extract reusable patterns** from your prompt library
-2. **Compress prompts** using those patterns + extractive compression
-3. **Use compressed prompts** directly with LLMs (they understand the format natively)
+1. **Setup embedding models** (for semantic scoring): `tokuin setup models`
+2. **Extract reusable patterns** from your prompt library (optional)
+3. **Compress prompts** using those patterns + extractive compression
+4. **Use compressed prompts** directly with LLMs (they understand the format natively)
+
+### Setup Embedding Models (for Semantic Scoring)
+
+Before using semantic or hybrid scoring, download the embedding models:
+
+```bash
+# Download tokenizer (required for semantic scoring)
+tokuin setup models
+
+# Also download ONNX model (optional, for better quality)
+tokuin setup models --onnx
+```
+
+**Note**: Release binaries include models bundled, so setup is only needed when building from source.
+
+**Troubleshooting**: If `tokuin setup models` fails, see [`scripts/README.md`](scripts/README.md) for manual conversion scripts.
 
 ### Extract Context Patterns
 
@@ -326,6 +394,8 @@ Options:
 - `--context-lib`: Path to context library (default: `contexts.toml`)
 - `--inline`: Force inline mode (no context references)
 - `--format`: Output format (`hieratic`, `expanded`, `json`)
+- `--quality`: Calculate and display quality metrics (semantic similarity, critical instruction preservation, etc.)
+- `--scoring`: Scoring mode (`heuristic`, `semantic`, `hybrid`) - requires `compression-embeddings` feature for semantic/hybrid
 
 Output:
 ```
@@ -339,6 +409,35 @@ Compressed: 420 tokens
 Reduction: 82.9% (2,030 tokens saved)
 
 Output: my-prompt.hieratic
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+With `--quality` flag:
+```
+Compressing: my-prompt.txt
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Compression Summary:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Original:  2,450 tokens
+Compressed: 420 tokens
+Reduction: 82.9% (2,030 tokens saved)
+
+Output: my-prompt.hieratic
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Calculating quality metrics...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Quality Metrics:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Overall Score: 82.3% (Good)
+  ├─ Semantic Similarity: 85.1%
+  ├─ Critical Instructions: 3/3 preserved (100.0%)
+  ├─ Information Retention: 78.2%
+  └─ Structural Integrity: 100.0%
+
+✅ Quality is acceptable (>= 70%)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -472,7 +571,7 @@ tokuin expand compressed.hieratic | tokuin load-test --model gpt-4 --runs 100 --
 
 ### Format Specification
 
-See [`docs/HIERATIC_FORMAT.md`](docs/HIERATIC_FORMAT.md) for the complete format specification, design rationale, and advanced examples.
+See [`HIERATIC_FORMAT.md`](HIERATIC_FORMAT.md) for the complete format specification, design rationale, and advanced examples.
 
 ## 📋 Command Line Options
 
@@ -562,7 +661,212 @@ cargo build --release --features all
 - `watch`: File watching for automatic re-analysis
 - `gemini`: Google Gemini model support (uses approximation without CMake)
 - `load-test`: Load testing with progress bars, metrics, and cost estimation
-- `all`: Enables all optional features
+- `compression`: Prompt compression with Hieratic format
+- `compression-embeddings`: Semantic scoring using ONNX embeddings (includes `compression`)
+- `all`: Enables all optional features (includes `compression-embeddings`)
+
+## 🛠️ Build from Source (Power Users)
+
+### Prerequisites
+
+- **Rust**: 1.70+ (install via [rustup](https://rustup.rs/))
+- **Cargo**: Comes with Rust installation
+- **Python 3.10+** (optional, only needed for ONNX model conversion if building from scratch)
+- **Git**: For cloning the repository
+
+### Quick Build
+
+**Minimal build (token counting only):**
+```bash
+git clone https://github.com/nooscraft/tokuin.git
+cd tokuin
+cargo build --release
+```
+
+**Full-featured build (recommended):**
+```bash
+cargo build --release --features all
+```
+
+This includes:
+- ✅ Token counting and cost estimation
+- ✅ Prompt compression with Hieratic format
+- ✅ Semantic scoring with ONNX embeddings
+- ✅ Quality metrics
+- ✅ Load testing capabilities
+- ✅ Markdown support
+- ✅ Watch mode
+- ✅ Gemini tokenization
+
+### Feature-Specific Builds
+
+**Compression only (no embeddings):**
+```bash
+cargo build --release --features compression
+```
+- ✅ Basic compression, quality metrics, structured mode
+- ❌ No semantic scoring
+
+**Compression with embeddings (semantic scoring):**
+```bash
+cargo build --release --features compression-embeddings
+```
+- ✅ All compression features
+- ✅ Semantic and hybrid scoring
+- ✅ ONNX embeddings
+- ✅ Automatic model download support
+
+**Individual features:**
+```bash
+# Markdown support
+cargo build --release --features markdown
+
+# Watch mode
+cargo build --release --features watch
+
+# Gemini tokenization
+cargo build --release --features gemini
+
+# Load testing
+cargo build --release --features load-test
+
+# Combine features
+cargo build --release --features compression,load-test,markdown
+```
+
+### Post-Build Setup
+
+**1. Setup Embedding Models (for semantic scoring):**
+
+If you built with `compression-embeddings` or `all`, download the embedding models:
+
+```bash
+# Download tokenizer (required for semantic scoring)
+./target/release/tokuin setup models
+
+# Also download ONNX model (optional, better quality)
+./target/release/tokuin setup models --onnx
+
+# Force re-download if needed
+./target/release/tokuin setup models --force
+```
+
+**What this does:**
+- Downloads the `all-MiniLM-L6-v2` tokenizer from HuggingFace
+- Optionally converts and downloads the ONNX model for inference
+- Stores models in `~/.cache/tokuin/models/` (or platform-specific cache directory)
+- Models are cached and reused across sessions
+
+**2. Verify Installation:**
+
+```bash
+# Test basic functionality
+./target/release/tokuin --version
+
+# Test compression with semantic scoring
+echo "Test prompt" | ./target/release/tokuin compress - --scoring hybrid --quality
+
+# Test load testing (if built with load-test feature)
+echo "Hello" | ./target/release/tokuin load-test --model gpt-4 --runs 1 --dry-run
+```
+
+### Installation Options
+
+**Option 1: Install to system PATH**
+```bash
+# Linux/macOS
+sudo cp target/release/tokuin /usr/local/bin/
+
+# Or to user directory (no sudo needed)
+mkdir -p ~/.local/bin
+cp target/release/tokuin ~/.local/bin/
+export PATH="$HOME/.local/bin:$PATH"  # Add to ~/.bashrc or ~/.zshrc
+```
+
+**Option 2: Use directly from build directory**
+```bash
+# Add alias to your shell config
+alias tokuin="$HOME/Projects/tokuin/target/release/tokuin"
+```
+
+**Option 3: Use install script (after building)**
+```bash
+# The install script can also install from a local build
+./install.sh --local target/release/tokuin
+```
+
+### Troubleshooting
+
+**Build fails with "linker not found":**
+- **Linux**: Install `build-essential` or equivalent
+- **macOS**: Install Xcode Command Line Tools: `xcode-select --install`
+- **Windows**: Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+
+**ONNX model download fails:**
+- Check internet connection
+- Verify Python 3.10+ is installed: `python3 --version`
+- Try manual download: `tokuin setup models --force`
+- If automatic download fails, use manual conversion scripts: See [`scripts/README.md`](scripts/README.md) for helper scripts
+- Models are optional - compression works without them (using heuristic scoring)
+
+**"No such file or directory" when running:**
+- Ensure you're running from the correct path: `./target/release/tokuin`
+- Check file permissions: `chmod +x target/release/tokuin`
+- Verify build succeeded: `ls -lh target/release/tokuin`
+
+**Feature not available after build:**
+- Verify you built with the correct feature flag
+- Check feature availability: `./target/release/tokuin --help`
+- Rebuild with the feature: `cargo build --release --features <feature-name>`
+
+### Development Build
+
+For development with debug symbols and faster compilation:
+
+```bash
+# Debug build (faster compilation, larger binary)
+cargo build
+
+# Run tests
+cargo test
+
+# Run with output
+cargo test -- --nocapture
+
+# Format code
+cargo fmt
+
+# Lint code
+cargo clippy -- -D warnings
+```
+
+### Feature Matrix
+
+| Feature | Flag | Build Command | Post-Build Setup |
+|---------|------|---------------|------------------|
+| Basic token counting | (default) | `cargo build --release` | None |
+| Compression | `compression` | `--features compression` | None |
+| Semantic scoring | `compression-embeddings` | `--features compression-embeddings` | `tokuin setup models` |
+| Load testing | `load-test` | `--features load-test` | API keys (env vars) |
+| Markdown | `markdown` | `--features markdown` | None |
+| Watch mode | `watch` | `--features watch` | None |
+| Gemini | `gemini` | `--features gemini` | None |
+| Everything | `all` | `--features all` | `tokuin setup models` |
+
+### Performance Tips
+
+- **Release builds**: Always use `--release` for production (10-100x faster)
+- **Parallel compilation**: Cargo uses all CPU cores by default
+- **Incremental builds**: Cargo caches intermediate artifacts
+- **Feature selection**: Only build features you need to reduce compile time
+
+### Next Steps
+
+After building and setting up:
+1. Read the [Usage](#-usage) section for common commands
+2. Try [Prompt Compression](#️-prompt-compression-with-hieratic-format-requires-features-compression) with `--quality` flag
+3. Explore [Load Testing](#load-testing-requires---features-load-test) capabilities
+4. Check [Command Line Options](#-command-line-options) for advanced usage
 
 ## 🎯 Supported Models
 

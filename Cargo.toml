@@ -101,7 +101,7 @@ gemini-sentencepiece = ["sentencepiece"]
 load-test = ["tokio", "reqwest", "async-trait", "indicatif", "hdrhistogram", "serde_yaml", "fastrand"]
 compression = ["strsim", "regex", "chrono", "uuid"]
 compression-embeddings = ["compression", "tokenizers", "hf-hub", "dirs", "ort", "ndarray", "num_cpus"]
-all = ["openai", "watch", "markdown", "gemini", "load-test", "compression"]
+all = ["openai", "watch", "markdown", "gemini", "load-test", "compression", "compression-embeddings"]
 
 [dev-dependencies]
 # Testing

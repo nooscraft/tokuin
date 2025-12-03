@@ -1,5 +1,6 @@
 Param(
-    [string]$InstallDir = "$Env:LOCALAPPDATA\Programs\tokuin"
+    [string]$InstallDir = "$Env:LOCALAPPDATA\Programs\tokuin",
+    [switch]$SkipModels
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,4 +94,21 @@ try {
 }
 
 Write-Host 'Done!'
+
+# Optionally setup embedding models
+if (-not $SkipModels) {
+    Write-Host ''
+    Write-Host '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+    Write-Host 'Setting up embedding models...'
+    Write-Host '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+    try {
+        & $destination setup models
+        Write-Host '✓ Models setup complete!'
+    } catch {
+        Write-Warning "Model setup failed or skipped. You can run 'tokuin setup models' later."
+    }
+} else {
+    Write-Host ''
+    Write-Host "Skipping model setup. Run 'tokuin setup models' to download embedding models."
+}
 

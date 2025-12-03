@@ -1,0 +1,32 @@
+# Example pricing overrides for Tokuin.
+# Copy this file to `pricing.toml`, tweak the numbers, and point the CLI at it
+# using `--pricing-file pricing.toml` or the `TOKUIN_PRICING_FILE` environment
+# variable.
+
+# Provider names become table headers; individual models are nested tables.
+# Input/output prices are expressed per 1,000 tokens in USD.
+
+[openai]
+
+[openai.gpt-4]
+input = 0.03
+output = 0.06
+
+[openai.gpt-4o-mini]
+input = 0.005
+output = 0.015
+
+[anthropic]
+
+[anthropic.claude-3-sonnet]
+input = 0.003
+output = 0.015
+
+[openrouter]
+
+# Provider-prefixed keys (e.g., "openrouter/anthropic-claude-sonnet")
+# are generated automatically. Just use the bare model id below.
+[openrouter.anthropic-sonnet]
+input = 0.003
+output = 0.015
+

@@ -5,7 +5,7 @@ use crate::compression::similarity::{normalize_text, normalized_similarity};
 use crate::compression::types::{ContextLibrary, ContextPattern};
 use crate::error::AppError;
 use crate::tokenizers::Tokenizer;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
@@ -96,7 +96,7 @@ impl PatternExtractor {
         // Extract candidates from each prompt
         let mut candidates: Vec<PatternCandidate> = Vec::new();
 
-        for (path, content) in prompts {
+        for (_path, content) in prompts {
             let extracted = self.extract_candidates_from_text(content);
             candidates.extend(extracted);
         }

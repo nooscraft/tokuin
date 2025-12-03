@@ -28,23 +28,36 @@ pub mod hieratic_decoder;
 #[cfg(feature = "compression-embeddings")]
 pub mod embeddings;
 
-// Re-export main types
+#[cfg(feature = "compression")]
+pub mod quality;
+
+// Re-export main types (public API - may not all be used internally)
+#[allow(unused_imports)]
 pub use types::{
     CompressionConfig, CompressionLevel, CompressionResult, ContextLibrary, ContextPattern,
     HieraticDocument, HieraticSection, OutputFormat, ScoringMode,
 };
 
 #[cfg(feature = "compression")]
+#[allow(unused_imports)]
 pub use compressor::Compressor;
 
 #[cfg(feature = "compression")]
+#[allow(unused_imports)]
 pub use hieratic_encoder::HieraticEncoder;
 
 #[cfg(feature = "compression")]
+#[allow(unused_imports)]
 pub use hieratic_decoder::HieraticDecoder;
 
 #[cfg(feature = "compression")]
+#[allow(unused_imports)]
 pub use context_library::ContextLibraryManager;
 
 #[cfg(feature = "compression")]
+#[allow(unused_imports)]
 pub use pattern_extractor::PatternExtractor;
+
+#[cfg(feature = "compression")]
+#[allow(unused_imports)]
+pub use quality::QualityMetrics;
