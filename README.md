@@ -497,6 +497,26 @@ tokuin compress technical-prompt.txt --structured --level medium
 - Natural language instructions
 - Simple role/task descriptions
 
+### Limitations and Best Practices
+
+**Minimum Prompt Size:**
+- Prompts with **< 50 tokens** won't benefit from compression
+- Hieratic format adds ~10-15 tokens of overhead
+- For very short prompts, compressed version may be larger than original
+- Compression ratio will be 0% or negative for prompts < 50 tokens
+- **Recommendation**: Use compression for prompts ≥ 50 tokens for best results
+
+**When Compression is Most Effective:**
+- ✅ Longer prompts (100+ tokens) - see 70-90% reduction
+- ✅ Prompts with repetitive patterns (role descriptions, examples)
+- ✅ Technical documentation with structured sections
+- ✅ Multi-turn conversations (use `--incremental`)
+
+**When Compression May Not Help:**
+- ❌ Very short prompts (< 50 tokens) - format overhead exceeds savings
+- ❌ Already highly compressed text (code, URLs, minimal prose)
+- ❌ Single-sentence instructions without context
+
 ### Incremental Compression (Factory.ai-Inspired)
 
 For multi-turn conversations or continuously growing documents, use `--incremental` to avoid re-compressing already processed content:

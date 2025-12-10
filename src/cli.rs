@@ -20,6 +20,49 @@ use std::time::Duration;
 #[derive(Parser, Debug)]
 #[command(name = "tokuin")]
 #[command(about = "A fast CLI tool to estimate token usage and API costs for LLM prompts")]
+#[command(
+    long_about = r#"Tokuin - A fast CLI tool for LLM prompt analysis and optimization
+
+CORE FEATURES:
+  • Token Counting: Accurate token estimation for OpenAI, Claude, Mistral, and more
+  • Cost Estimation: Calculate API costs based on token pricing per model
+  • Multi-Model Comparison: Compare token usage and costs across multiple providers
+  • Role-Based Breakdown: Show token count by system/user/assistant role messages
+  • Multiple Input Formats: Support plain text, JSON chat formats, and stdin
+  • Flexible Output: Human-readable text, JSON, or Markdown output
+
+COMPRESSION FEATURES (--features compression):
+  • Prompt Compression: Compress prompts by 70-90% using Hieratic format
+  • Semantic Scoring: Use ONNX embeddings for better compression quality
+  • Quality Metrics: Evaluate compression fidelity and information retention
+  • Incremental Compression: Optimize multi-turn conversations efficiently
+  • Context Library: Extract and reuse common patterns across prompts
+
+ADDITIONAL FEATURES:
+  • Load Testing (--features load-test): Run concurrent load tests with real-time metrics
+  • Prompt Library Analysis: Scan directories, detect duplicates, estimate costs at scale
+  • Markdown Support (--features markdown): Parse and minify markdown content
+  • Watch Mode (--features watch): Automatically re-run on file changes
+  • Gemini Tokenization (--features gemini): Support for Google Gemini models
+
+EXAMPLES:
+  # Basic token counting
+  tokuin prompt.txt --model gpt-4
+
+  # Compare multiple models
+  tokuin prompt.txt --compare gpt-4 claude-2 mistral-large
+
+  # Compress a prompt
+  tokuin compress prompt.txt --level aggressive --quality
+
+  # Analyze a prompt library
+  tokuin analyze-prompts ./prompts --top-n 20
+
+  # Run load tests
+  tokuin load-test --model gpt-4 --runs 100 --concurrency 10
+
+For more information, visit: https://github.com/nooscraft/tokuin"#
+)]
 #[command(version)]
 pub struct Cli {
     #[command(subcommand)]
@@ -212,7 +255,29 @@ pub enum Command {
 
     /// Extract reusable context patterns from a prompt library
     #[cfg(feature = "compression")]
-    #[command(name = "extract-context")]
+    #[command(
+        name = "extract-context",
+        long_about = r#"Extract reusable context patterns from a directory of prompts to build a context library.
+
+This command analyzes multiple prompt files to identify common patterns, instructions, and reusable content. These patterns are saved to a context library (TOML format) that can be referenced during compression, reducing token usage by reusing common elements.
+
+The context library enables:
+  • Cross-prompt pattern reuse
+  • Reduced token usage through reference-based compression
+  • Consistent instruction formatting across prompts
+
+EXAMPLES:
+  # Extract patterns from a prompt directory
+  tokuin extract-context ./prompts
+
+  # Custom output file and thresholds
+  tokuin extract-context ./prompts --output my_contexts.toml --min-frequency 3 --min-similarity 0.9
+
+  # Use with compression
+  tokuin compress prompt.txt --context-lib my_contexts.toml
+
+The extracted context library can be used with the compress command via --context-lib flag."#
+    )]
     ExtractContext {
         /// Directory containing prompt files
         #[arg(value_name = "DIR")]
@@ -237,6 +302,42 @@ pub enum Command {
 
     /// Compress a prompt to Hieratic format
     #[cfg(feature = "compression")]
+    #[command(
+        long_about = r#"Compress prompts using the Hieratic format - an LLM-parseable compression format that preserves semantic meaning while reducing token count by 70-90%.
+
+The Hieratic format uses structured sections (role, examples, constraints, task) and context references to achieve high compression ratios while maintaining quality. Quality metrics help ensure critical information is preserved.
+
+EXAMPLES:
+  # Basic compression with default settings
+  tokuin compress prompt.txt
+
+  # Aggressive compression with quality metrics
+  tokuin compress prompt.txt --level aggressive --quality
+
+  # Use semantic scoring for better quality
+  tokuin compress prompt.txt --scoring semantic --quality
+
+  # Compress structured content (JSON, code, tables)
+  tokuin compress api_docs.txt --structured --level medium
+
+  # Incremental compression for multi-turn conversations
+  tokuin compress conversation.txt --incremental
+
+  # Output as JSON for programmatic use
+  tokuin compress prompt.txt --format json --output results.json
+
+COMPRESSION LEVELS:
+  • light:      30-50% reduction, best quality preservation
+  • medium:     50-70% reduction, balanced quality and compression
+  • aggressive: 70-90% reduction, maximum compression
+
+SCORING MODES:
+  • heuristic: Fast keyword-based scoring (default)
+  • semantic:  Embedding-based scoring for better quality (requires compression-embeddings)
+  • hybrid:    Combines both approaches for optimal results
+
+For more information, see: https://github.com/nooscraft/tokuin"#
+    )]
     Compress {
         /// Input prompt file
         #[arg(value_name = "FILE")]
@@ -297,6 +398,26 @@ pub enum Command {
 
     /// Expand a Hieratic file back to full prompt
     #[cfg(feature = "compression")]
+    #[command(
+        long_about = r#"Expand a compressed Hieratic file back to its full prompt text.
+
+The expand command reconstructs the original prompt from the Hieratic format, resolving context references and reconstructing all sections. This is useful for:
+  • Verifying compression quality
+  • Using compressed prompts with LLMs that don't support Hieratic format
+  • Debugging compression issues
+
+EXAMPLES:
+  # Expand to stdout
+  tokuin expand prompt.hieratic
+
+  # Expand to a file
+  tokuin expand prompt.hieratic --output expanded.txt
+
+  # Use custom context library
+  tokuin expand prompt.hieratic --context-lib custom.toml
+
+The expanded output should closely match the original prompt, with quality metrics indicating how well information was preserved."#
+    )]
     Expand {
         /// Hieratic file to expand
         #[arg(value_name = "FILE")]
@@ -1301,12 +1422,30 @@ impl Cli {
             );
         }
 
-        let result = if use_incremental {
+        let mut result = if use_incremental {
             eprintln!("Using incremental compression mode");
             compressor.compress_incremental(&prompt, &config)?
         } else {
             compressor.compress(&prompt, &config)?
         };
+
+        // Calculate quality metrics if requested (before JSON serialization)
+        if quality {
+            eprintln!("\nCalculating quality metrics...");
+            match compressor.calculate_quality_metrics(&prompt, &result) {
+                Ok(metrics) => {
+                    // Store metrics in result for JSON output
+                    result.quality_metrics = Some(metrics.clone());
+                    // Display will happen later after file write
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Warning: Failed to calculate quality metrics: {}", e);
+                    eprintln!(
+                        "   Compression completed successfully, but quality check was skipped."
+                    );
+                }
+            }
+        }
 
         let hieratic_encoder = HieraticEncoder::new();
         let hieratic_output = hieratic_encoder.encode(&result.document)?;
@@ -1357,55 +1496,42 @@ impl Cli {
         eprintln!("\nOutput: {}", output_path);
         eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        // Calculate and display quality metrics if requested
-        if quality {
-            eprintln!("\nCalculating quality metrics...");
-            match compressor.calculate_quality_metrics(&prompt, &result) {
-                Ok(metrics) => {
-                    eprintln!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    eprintln!("Quality Metrics:");
-                    eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                    eprintln!(
-                        "Overall Score: {:.1}% ({})",
-                        metrics.overall_score * 100.0,
-                        metrics.rating()
-                    );
-                    eprintln!(
-                        "  ├─ Semantic Similarity: {:.1}%",
-                        metrics.semantic_similarity * 100.0
-                    );
-                    eprintln!(
-                        "  ├─ Critical Instructions: {}/{} preserved ({:.1}%)",
-                        metrics.critical_patterns_preserved,
-                        metrics.critical_patterns_found,
-                        metrics.critical_instruction_preservation * 100.0
-                    );
-                    eprintln!(
-                        "  ├─ Information Retention: {:.1}%",
-                        metrics.information_retention * 100.0
-                    );
-                    eprintln!(
-                        "  └─ Structural Integrity: {:.1}%",
-                        metrics.structural_integrity * 100.0
-                    );
+        // Display quality metrics if calculated
+        if let Some(ref metrics) = result.quality_metrics {
+            eprintln!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            eprintln!("Quality Metrics:");
+            eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            eprintln!(
+                "Overall Score: {:.1}% ({})",
+                metrics.overall_score * 100.0,
+                metrics.rating()
+            );
+            eprintln!(
+                "  ├─ Semantic Similarity: {:.1}%",
+                metrics.semantic_similarity * 100.0
+            );
+            eprintln!(
+                "  ├─ Critical Instructions: {}/{} preserved ({:.1}%)",
+                metrics.critical_patterns_preserved,
+                metrics.critical_patterns_found,
+                metrics.critical_instruction_preservation * 100.0
+            );
+            eprintln!(
+                "  ├─ Information Retention: {:.1}%",
+                metrics.information_retention * 100.0
+            );
+            eprintln!(
+                "  └─ Structural Integrity: {:.1}%",
+                metrics.structural_integrity * 100.0
+            );
 
-                    if metrics.is_acceptable() {
-                        eprintln!("\n✅ Quality is acceptable (>= 70%)");
-                    } else {
-                        eprintln!("\n⚠️  Warning: Quality is below recommended threshold (< 70%)");
-                        eprintln!(
-                            "   Consider using --level light or reviewing the compressed output."
-                        );
-                    }
-                    eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                }
-                Err(e) => {
-                    eprintln!("⚠️  Warning: Failed to calculate quality metrics: {}", e);
-                    eprintln!(
-                        "   Compression completed successfully, but quality check was skipped."
-                    );
-                }
+            if metrics.is_acceptable() {
+                eprintln!("\n✅ Quality is acceptable (>= 70%)");
+            } else {
+                eprintln!("\n⚠️  Warning: Quality is below recommended threshold (< 70%)");
+                eprintln!("   Consider using --level light or reviewing the compressed output.");
             }
+            eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         }
 
         if incremental {
@@ -1499,8 +1625,7 @@ impl Cli {
         eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
         #[cfg(feature = "load-test")]
-        use crate::compression::embeddings::ProgressCallback;
-        let progress_callback: Option<ProgressCallback> = {
+        let progress_callback: Option<crate::compression::embeddings::ProgressCallback> = {
             let pb = ProgressBar::new_spinner();
             pb.set_style(
                 ProgressStyle::default_spinner()

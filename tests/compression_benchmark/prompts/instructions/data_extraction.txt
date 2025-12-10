@@ -1,0 +1,12 @@
+Extract the following information from the document:
+- Full name of the person
+- Date of birth
+- Email address
+- Phone number
+
+Response Format:
+Name::DateOfBirth::Email::Phone
+
+If you are unable to find any field, use "N/A" for that field.
+The separator is ALWAYS :: (double colon).
+Do NOT output any additional text or explanation.

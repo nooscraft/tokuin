@@ -1,0 +1,24 @@
+{
+  "original_tokens": 76,
+  "compressed_tokens": 55,
+  "compression_ratio": 0.27631578947368424,
+  "tokens_saved": 21,
+  "context_refs": [],
+  "extractive_stats": {
+    "low_relevance_removed": 97,
+    "redundant_removed": 0,
+    "sections_compressed": 1
+  },
+  "document": {
+    "version": "1.0",
+    "context_path": null,
+    "sections": [
+      {
+        "Task": {
+          "content": "Extract the following information from the document: - Full name of the person - Date of birth - Email address - Phone number Response Format: The separator is ALWAYS :: (double colon). Do NOT output any additional text or explanation."
+        }
+      }
+    ]
+  },
+  "anchors": []
+}

@@ -1,0 +1,26 @@
+Extract data from the following document and return it as JSON.
+
+Required JSON Schema:
+{
+  "title": "Document Analysis",
+  "type": "object",
+  "properties": {
+    "summary": {"type": "string"},
+    "key_points": {"type": "array", "items": {"type": "string"}},
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"},
+          "confidence": {"type": "number"}
+        }
+      }
+    }
+  },
+  "required": ["summary", "key_points"]
+}
+
+Document:
+[Document content will be provided here]

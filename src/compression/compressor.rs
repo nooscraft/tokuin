@@ -72,7 +72,7 @@ impl Compressor {
         &self,
         provider: &dyn EmbeddingProvider,
     ) -> Result<Vec<Vec<f32>>, AppError> {
-        let patterns = vec![
+        let patterns = [
             "Response Format:",
             "separator is ALWAYS",
             "DO NOT output",
@@ -141,6 +141,37 @@ impl Compressor {
         config: &CompressionConfig,
     ) -> Result<CompressionResult, AppError> {
         let original_tokens = self.tokenizer.count_tokens(prompt)?;
+
+        // Skip compression for very short prompts where format overhead exceeds benefits
+        // Hieratic format adds ~10-15 tokens overhead, so prompts < 50 tokens won't benefit
+        const MIN_TOKENS_FOR_COMPRESSION: usize = 50;
+        if original_tokens < MIN_TOKENS_FOR_COMPRESSION {
+            // Return original as-is with minimal Hieratic structure
+            let mut doc = HieraticDocument::new();
+            doc.add_section(HieraticSection::Task {
+                content: prompt.to_string(),
+            });
+
+            let compressed_tokens = self.calculate_compressed_tokens(&doc, &[])?;
+            let tokens_saved = original_tokens.saturating_sub(compressed_tokens);
+            let compression_ratio = if original_tokens > 0 {
+                tokens_saved as f64 / original_tokens as f64
+            } else {
+                0.0
+            };
+
+            return Ok(CompressionResult {
+                original_tokens,
+                compressed_tokens,
+                compression_ratio,
+                tokens_saved,
+                context_refs: Vec::new(),
+                extractive_stats: ExtractionStats::default(),
+                document: doc,
+                anchors: Vec::new(),
+                quality_metrics: None,
+            });
+        }
 
         // Split into instructions and document; only instructions are compressible.
         let (instructions, document_part) = self.split_instructions_and_document(prompt);

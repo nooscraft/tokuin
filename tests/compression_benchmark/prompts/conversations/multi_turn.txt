@@ -1,0 +1,17 @@
+You are a helpful assistant for a customer support system.
+
+System: Welcome! How can I help you today?
+
+User: I'm having trouble with my account login.
+
+System: I'm sorry to hear that. Can you provide your account email?
+
+User: [User provides email]
+
+System: I've found your account. What specific issue are you experiencing?
+
+User: [User describes issue]
+
+System: [Provide solution based on issue]
+
+Please continue this conversation following the same pattern, maintaining a helpful and professional tone.

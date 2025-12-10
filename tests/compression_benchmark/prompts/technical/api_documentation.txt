@@ -1,0 +1,32 @@
+Document the following API endpoint:
+
+Endpoint: POST /api/v1/users
+Authentication: Bearer token required
+Request Body:
+{
+  "name": "string (required)",
+  "email": "string (required, valid email format)",
+  "role": "string (optional, one of: admin, user, guest)"
+}
+
+Response Codes:
+- 201: User created successfully
+- 400: Invalid request data
+- 401: Unauthorized
+- 409: Email already exists
+
+Response Body (201):
+{
+  "id": "uuid",
+  "name": "string",
+  "email": "string",
+  "role": "string",
+  "created_at": "ISO 8601 timestamp"
+}
+
+Provide comprehensive documentation including:
+1. Endpoint description
+2. Authentication requirements
+3. Request/response examples
+4. Error handling
+5. Rate limiting information
