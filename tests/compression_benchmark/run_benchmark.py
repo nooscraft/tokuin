@@ -13,6 +13,7 @@ import subprocess
 import time
 import sys
 import shutil
+import argparse
 from pathlib import Path
 from typing import Dict, List, Optional
 import psutil
@@ -142,7 +143,10 @@ def run_compression(
     level: str,
     scoring: str,
     tokuin_bin: str,
-    model: str = "gpt-4"
+    model: str = "gpt-4",
+    llm_judge: bool = False,
+    evaluation_model: Optional[str] = None,
+    judge_model: str = "openai/gpt-4",
 ) -> Dict:
     """Run compression on a single prompt and return results."""
     # Resolve to absolute path to avoid issues with working directory
@@ -176,6 +180,13 @@ def run_compression(
         "--quality",
         "--model", model,
     ]
+    
+    # Add LLM judge flags if enabled
+    if llm_judge:
+        cmd.append("--llm-judge")
+        if evaluation_model:
+            cmd.extend(["--evaluation-model", evaluation_model])
+        cmd.extend(["--judge-model", judge_model])
     
     # Measure execution time and memory
     start_time = time.time()
@@ -239,8 +250,29 @@ def run_compression(
                     "critical_patterns_found": qm.get("critical_patterns_found", 0),
                     "critical_patterns_preserved": qm.get("critical_patterns_preserved", 0),
                 }
+                
+                # LLM judge metrics
+                if "llm_judge" in qm and qm["llm_judge"]:
+                    lj = qm["llm_judge"]
+                    result["llm_judge_metrics"] = {
+                        "output_equivalence": lj.get("output_equivalence", 0.0),
+                        "instruction_compliance": lj.get("instruction_compliance", 0.0),
+                        "information_completeness": lj.get("information_completeness", 0.0),
+                        "quality_preservation": lj.get("quality_preservation", 0.0),
+                        "overall_fidelity": lj.get("overall_fidelity", 0.0),
+                        "justification": lj.get("justification", ""),
+                        "key_differences": lj.get("key_differences", []),
+                        "evaluation_model": lj.get("evaluation_model", ""),
+                        "judge_model": lj.get("judge_model", ""),
+                        "evaluation_cost": lj.get("evaluation_cost"),
+                        "original_output": lj.get("original_output"),
+                        "compressed_output": lj.get("compressed_output"),
+                    }
+                else:
+                    result["llm_judge_metrics"] = None
             else:
                 result["quality_metrics"] = None
+                result["llm_judge_metrics"] = None
             
             # Context references
             result["context_refs_count"] = len(output_data.get("context_refs", []))
@@ -269,7 +301,13 @@ def run_compression(
     return result
 
 
-def run_all_benchmarks(tokuin_bin: str, model: str = "gpt-4") -> List[Dict]:
+def run_all_benchmarks(
+    tokuin_bin: str,
+    model: str = "gpt-4",
+    llm_judge: bool = False,
+    evaluation_model: Optional[str] = None,
+    judge_model: str = "openai/gpt-4",
+) -> List[Dict]:
     """Run all benchmark combinations."""
     prompts = get_prompt_files(tokuin_bin, model)
     results = []
@@ -297,7 +335,10 @@ def run_all_benchmarks(tokuin_bin: str, model: str = "gpt-4") -> List[Dict]:
                     print(f"[{test_num}/{total_tests}] {prompt_file.name} | {level} | {scoring}", end=" ... ")
                     sys.stdout.flush()
                     
-                    result = run_compression(prompt_file, level, scoring, tokuin_bin, model)
+                    result = run_compression(
+                        prompt_file, level, scoring, tokuin_bin, model,
+                        llm_judge, evaluation_model, judge_model
+                    )
                     results.append(result)
                     
                     if result["success"]:
@@ -332,6 +373,18 @@ def save_results(results: List[Dict], output_file: Path):
 
 def main():
     """Main benchmark execution."""
+    parser = argparse.ArgumentParser(description="Run compression benchmarks")
+    parser.add_argument("--llm-judge", action="store_true",
+                        help="Enable LLM-as-a-judge evaluation")
+    parser.add_argument("--evaluation-model", type=str, default=None,
+                        help="Model to use for generating outputs (default: same as --model)")
+    parser.add_argument("--judge-model", type=str, default="openai/gpt-4",
+                        help="Model to use for judging outputs (default: openai/gpt-4)")
+    parser.add_argument("--model", type=str, default="gpt-4",
+                        help="Model to use for tokenization (default: gpt-4)")
+    
+    args = parser.parse_args()
+    
     # Find tokuin binary
     try:
         tokuin_bin = find_tokuin_binary()
@@ -346,8 +399,20 @@ def main():
         print("Run 'python collect_prompts.py' first to collect prompts.")
         sys.exit(1)
     
+    if args.llm_judge:
+        print("⚠️  LLM judge evaluation enabled - this will make API calls and incur costs")
+        print(f"   Evaluation model: {args.evaluation_model or args.model}")
+        print(f"   Judge model: {args.judge_model}")
+        print("   Make sure OPENROUTER_API_KEY is set in your environment")
+    
     # Run benchmarks
-    results = run_all_benchmarks(tokuin_bin)
+    results = run_all_benchmarks(
+        tokuin_bin,
+        args.model,
+        args.llm_judge,
+        args.evaluation_model,
+        args.judge_model,
+    )
     
     # Save results
     output_file = RESULTS_DIR / "benchmark_results.json"
@@ -369,6 +434,20 @@ def main():
             r.get("compression_percentage", 0) for r in results if r["success"]
         ) / successful
         print(f"Average compression: {avg_compression:.1f}%")
+        
+        if args.llm_judge:
+            llm_judge_results = [r for r in results if r.get("llm_judge_metrics")]
+            if llm_judge_results:
+                avg_fidelity = sum(
+                    r["llm_judge_metrics"].get("overall_fidelity", 0)
+                    for r in llm_judge_results
+                ) / len(llm_judge_results)
+                total_cost = sum(
+                    r["llm_judge_metrics"].get("evaluation_cost", 0) or 0
+                    for r in llm_judge_results
+                )
+                print(f"Average LLM judge fidelity: {avg_fidelity:.1f}/100")
+                print(f"Total evaluation cost: ${total_cost:.4f}")
     
     print(f"\nResults saved to: {output_file}")
     print("Run 'python generate_report.py' to generate the report.")

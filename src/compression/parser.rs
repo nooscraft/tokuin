@@ -103,9 +103,25 @@ impl HieraticParser {
 
         // Handle single-line directives (CONTEXT, FOCUS, STYLE, FORMAT)
         if let Some(captures) = self.directive_regex.captures(first_line) {
-            let directive = captures.get(1).unwrap().as_str();
+            let directive = captures
+                .get(1)
+                .ok_or_else(|| {
+                    AppError::Parse(crate::error::ParseError::InvalidFormat(
+                        "Missing directive name in Hieratic section".to_string(),
+                    ))
+                })?
+                .as_str();
             let _id = captures.get(3).map(|m| m.as_str().to_string());
-            let value = captures.get(4).unwrap().as_str().trim();
+            let value = captures
+                .get(4)
+                .ok_or_else(|| {
+                    AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                        "Missing value for @{} directive",
+                        directive
+                    )))
+                })?
+                .as_str()
+                .trim();
 
             match directive {
                 "CONTEXT" => {

@@ -394,6 +394,31 @@ For more information, see: https://github.com/nooscraft/tokuin"#
         /// Calculate and display quality metrics
         #[arg(long)]
         quality: bool,
+
+        /// Enable LLM-as-a-judge evaluation (requires load-test feature)
+        #[cfg(all(feature = "compression", feature = "load-test"))]
+        #[arg(long)]
+        llm_judge: bool,
+
+        /// Model to use for generating outputs (default: same as --model or anthropic/claude-3-opus)
+        #[cfg(all(feature = "compression", feature = "load-test"))]
+        #[arg(long)]
+        evaluation_model: Option<String>,
+
+        /// Model to use for judging outputs (default: anthropic/claude-3-opus)
+        #[cfg(all(feature = "compression", feature = "load-test"))]
+        #[arg(long, default_value = "anthropic/claude-3-opus")]
+        judge_model: String,
+
+        /// API key for judge/evaluation (or use OPENROUTER_API_KEY env var)
+        #[cfg(all(feature = "compression", feature = "load-test"))]
+        #[arg(long)]
+        judge_api_key: Option<String>,
+
+        /// Provider for judge/evaluation (default: openrouter)
+        #[cfg(all(feature = "compression", feature = "load-test"))]
+        #[arg(long, value_enum, default_value = "openrouter")]
+        judge_provider: JudgeProvider,
     },
 
     /// Expand a Hieratic file back to full prompt
@@ -503,6 +528,18 @@ pub enum CompressionScoringMode {
     Semantic,
     /// Hybrid: combine embeddings and heuristics (best of both)
     Hybrid,
+}
+
+/// Judge provider options for LLM-as-a-judge evaluation.
+#[cfg(all(feature = "compression", feature = "load-test"))]
+#[derive(Debug, Clone, ValueEnum)]
+pub enum JudgeProvider {
+    /// OpenAI API
+    Openai,
+    /// OpenRouter API (default, unified access to 400+ models)
+    Openrouter,
+    /// Anthropic API
+    Anthropic,
 }
 
 /// Load test output format options.
@@ -662,6 +699,16 @@ impl Cli {
                 format,
                 scoring,
                 quality,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                llm_judge,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                evaluation_model,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                judge_model,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                judge_api_key,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                judge_provider,
             }) => Self::run_compress(
                 input,
                 output,
@@ -677,6 +724,16 @@ impl Cli {
                 format,
                 scoring,
                 quality,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                llm_judge,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                evaluation_model,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                judge_model,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                judge_api_key,
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                judge_provider,
             ),
             #[cfg(feature = "compression")]
             Some(Command::Expand {
@@ -927,7 +984,7 @@ impl Cli {
             pb.set_style(
                 indicatif::ProgressStyle::default_bar()
                     .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} {msg}")
-                    .unwrap()
+                    .expect("valid progress bar template")
                     .progress_chars("#>-"),
             );
             pb.set_message("Starting load test...");
@@ -1286,7 +1343,12 @@ impl Cli {
 
     /// Compress a prompt to Hieratic format
     #[cfg(feature = "compression")]
-    #[allow(clippy::too_many_arguments)] // Compression has many configuration options
+    #[allow(clippy::too_many_arguments)]
+    // Compression has many configuration options
+    // Non-load-test version - inline implementation since we can't use LLM judge
+    // This avoids the complexity of conditional function signatures
+    #[cfg(not(all(feature = "compression", feature = "load-test")))]
+    #[allow(clippy::too_many_arguments)]
     fn run_compress(
         input: String,
         output: Option<String>,
@@ -1302,6 +1364,335 @@ impl Cli {
         format: CompressionOutputFormat,
         scoring: CompressionScoringMode,
         quality: bool,
+    ) -> Result<(), AppError> {
+        // For non-load-test builds, we can't use LLM judge
+        // Just call the internal function with None for LLM judge params
+        // But we need to handle this differently since the function signature changes
+        // For now, we'll duplicate the logic or use a macro
+        // Actually, let's just inline it for the non-load-test case
+        use crate::compression::compressor::Compressor;
+        use crate::compression::context_library::ContextLibraryManager;
+        use crate::compression::hieratic_encoder::HieraticEncoder;
+        use crate::compression::types::{
+            CompressionAnchor, CompressionConfig, CompressionLevel, ScoringMode,
+        };
+        use std::fs;
+        use std::path::Path;
+
+        let registry = ModelRegistry::new_with_pricing(None).map_err(AppError::Model)?;
+        let tokenizer = registry.get_tokenizer(&model)?;
+        let prompt = fs::read_to_string(&input).map_err(|e| {
+            AppError::Io(std::io::Error::other(format!(
+                "Failed to read input file: {}",
+                e
+            )))
+        })?;
+
+        let mut compressor = Compressor::new(tokenizer);
+
+        if !inline {
+            if let Some(ref lib_path) = context_lib {
+                if std::path::Path::new(lib_path).exists() {
+                    let library = ContextLibraryManager::load_from_file(lib_path)?;
+                    compressor = compressor.with_context_library(library);
+                }
+            } else if std::path::Path::new("contexts.toml").exists() {
+                let library = ContextLibraryManager::load_from_file("contexts.toml")?;
+                compressor = compressor.with_context_library(library);
+            }
+        }
+
+        let compression_level = match level {
+            CompressionLevelArg::Light => CompressionLevel::Light,
+            CompressionLevelArg::Medium => CompressionLevel::Medium,
+            CompressionLevelArg::Aggressive => CompressionLevel::Aggressive,
+        };
+
+        let scoring_mode = match scoring {
+            CompressionScoringMode::Heuristic => ScoringMode::Heuristic,
+            CompressionScoringMode::Semantic => ScoringMode::Semantic,
+            CompressionScoringMode::Hybrid => ScoringMode::Hybrid,
+        };
+
+        // Initialize embeddings if semantic or hybrid mode is selected
+        #[cfg(feature = "compression-embeddings")]
+        if matches!(scoring_mode, ScoringMode::Semantic | ScoringMode::Hybrid) {
+            use crate::compression::embeddings::OnnxEmbeddingProvider;
+            eprintln!("Initializing embedding model for semantic scoring...");
+            match OnnxEmbeddingProvider::new() {
+                Ok(provider) => {
+                    eprintln!("✓ Embedding model loaded successfully");
+                    compressor = compressor
+                        .with_embeddings(Box::new(provider))
+                        .map_err(|e| {
+                            AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                                "Failed to initialize embeddings: {}",
+                                e
+                            )))
+                        })?;
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Warning: Embeddings not available ({}), falling back to heuristic scoring", e);
+                    eprintln!("   Run 'tokuin setup models' to download embedding models.");
+                    eprintln!("   Continuing with heuristic scoring...");
+                }
+            }
+        }
+
+        let state_file_path = if incremental {
+            Some(
+                previous
+                    .clone()
+                    .unwrap_or_else(|| format!("{}.state.json", input)),
+            )
+        } else {
+            None
+        };
+
+        let previous_state = if let Some(ref path) = state_file_path {
+            if Path::new(path).exists() {
+                eprintln!("Loading incremental state from: {}", path);
+                let prev_json = fs::read_to_string(path).map_err(|e| {
+                    AppError::Io(std::io::Error::other(format!(
+                        "Failed to read state file: {}",
+                        e
+                    )))
+                })?;
+                let prev: crate::compression::types::CompressionResult =
+                    serde_json::from_str(&prev_json)
+                        .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidJson(e)))?;
+                Some(Box::new(prev))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let config = CompressionConfig {
+            level: compression_level,
+            context_library_path: context_lib.clone(),
+            force_inline: inline,
+            structured_mode: structured,
+            incremental_mode: incremental,
+            anchor_threshold,
+            retention_threshold,
+            previous_result: previous_state.clone(),
+            scoring_mode,
+            ..Default::default()
+        };
+
+        eprintln!("Compressing: {}", input);
+        let use_incremental = incremental && previous_state.is_some();
+        if incremental && !use_incremental {
+            eprintln!(
+                "No incremental state found. Running full compression and seeding state file."
+            );
+        }
+
+        let mut result = if use_incremental {
+            eprintln!("Using incremental compression mode");
+            compressor.compress_incremental(&prompt, &config)?
+        } else {
+            compressor.compress(&prompt, &config)?
+        };
+
+        // Calculate quality metrics if requested
+        if quality {
+            eprintln!("\nCalculating quality metrics...");
+            match compressor.calculate_quality_metrics(&prompt, &result) {
+                Ok(metrics) => {
+                    result.quality_metrics = Some(metrics.clone());
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Warning: Failed to calculate quality metrics: {}", e);
+                    eprintln!(
+                        "   Compression completed successfully, but quality check was skipped."
+                    );
+                }
+            }
+        }
+
+        let hieratic_encoder = HieraticEncoder::new();
+        let hieratic_output = hieratic_encoder.encode(&result.document)?;
+
+        let output_content = match format {
+            CompressionOutputFormat::Hieratic => hieratic_output.clone(),
+            CompressionOutputFormat::Expanded => prompt.clone(),
+            CompressionOutputFormat::Json => serde_json::to_string_pretty(&result)
+                .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidJson(e)))?,
+        };
+
+        let output_path = output.unwrap_or_else(|| format!("{}.hieratic", input));
+        fs::write(&output_path, output_content).map_err(|e| {
+            AppError::Io(std::io::Error::other(format!(
+                "Failed to write output: {}",
+                e
+            )))
+        })?;
+
+        eprintln!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        eprintln!("Compression Summary:");
+        eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        eprintln!("Original:  {} tokens", result.original_tokens);
+        eprintln!("Compressed: {} tokens", result.compressed_tokens);
+        eprintln!(
+            "Reduction: {:.1}% ({} tokens saved)",
+            result.compression_percentage(),
+            result.tokens_saved
+        );
+
+        if incremental && !result.anchors.is_empty() {
+            eprintln!("\nIncremental Mode:");
+            eprintln!("  Anchors: {}", result.anchors.len());
+            eprintln!(
+                "  Anchor tokens: {}",
+                result
+                    .anchors
+                    .iter()
+                    .map(|a| a.summary_tokens)
+                    .sum::<usize>()
+            );
+            eprintln!("  Retained tokens: {}", retention_threshold);
+        }
+
+        eprintln!("\nOutput: {}", output_path);
+        eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        // Display quality metrics if calculated
+        if let Some(ref metrics) = result.quality_metrics {
+            eprintln!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            eprintln!("Quality Metrics:");
+            eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            eprintln!(
+                "Overall Score: {:.1}% ({})",
+                metrics.overall_score * 100.0,
+                metrics.rating()
+            );
+            eprintln!(
+                "  ├─ Semantic Similarity: {:.1}%",
+                metrics.semantic_similarity * 100.0
+            );
+            eprintln!(
+                "  ├─ Critical Instructions: {}/{} preserved ({:.1}%)",
+                metrics.critical_patterns_preserved,
+                metrics.critical_patterns_found,
+                metrics.critical_instruction_preservation * 100.0
+            );
+            eprintln!(
+                "  ├─ Information Retention: {:.1}%",
+                metrics.information_retention * 100.0
+            );
+            eprintln!(
+                "  └─ Structural Integrity: {:.1}%",
+                metrics.structural_integrity * 100.0
+            );
+
+            if metrics.is_acceptable() {
+                eprintln!("\n✅ Quality is acceptable (>= 70%)");
+            } else {
+                eprintln!("\n⚠️  Warning: Quality is below recommended threshold (< 70%)");
+                eprintln!("   Consider using --level light or reviewing the compressed output.");
+            }
+            eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        }
+
+        if incremental {
+            if let Some(ref path) = state_file_path {
+                let mut state_result = result.clone();
+                if state_result.anchors.is_empty() {
+                    let hieratic_encoder = HieraticEncoder::new();
+                    let hieratic_output = hieratic_encoder.encode(&result.document)?;
+                    let anchor = CompressionAnchor::from_base_document(
+                        hieratic_output,
+                        result.compressed_tokens,
+                        result.original_tokens,
+                    );
+                    state_result.anchors.push(anchor);
+                }
+                let state_json = serde_json::to_string_pretty(&state_result)
+                    .map_err(|e| AppError::Parse(crate::error::ParseError::InvalidJson(e)))?;
+                fs::write(path, state_json).map_err(|e| {
+                    AppError::Io(std::io::Error::other(format!(
+                        "Failed to write state file: {}",
+                        e
+                    )))
+                })?;
+                eprintln!("\nState saved to: {}", path);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[cfg(all(feature = "compression", feature = "load-test"))]
+    #[allow(clippy::too_many_arguments)]
+    fn run_compress(
+        input: String,
+        output: Option<String>,
+        level: CompressionLevelArg,
+        context_lib: Option<String>,
+        inline: bool,
+        structured: bool,
+        incremental: bool,
+        previous: Option<String>,
+        anchor_threshold: usize,
+        retention_threshold: usize,
+        model: String,
+        format: CompressionOutputFormat,
+        scoring: CompressionScoringMode,
+        quality: bool,
+        llm_judge: bool,
+        evaluation_model: Option<String>,
+        judge_model: String,
+        judge_api_key: Option<String>,
+        judge_provider: JudgeProvider,
+    ) -> Result<(), AppError> {
+        Self::run_compress_internal(
+            input,
+            output,
+            level,
+            context_lib,
+            inline,
+            structured,
+            incremental,
+            previous,
+            anchor_threshold,
+            retention_threshold,
+            model,
+            format,
+            scoring,
+            quality,
+            llm_judge,
+            evaluation_model,
+            Some(judge_model),
+            judge_api_key,
+            Some(judge_provider),
+        )
+    }
+
+    #[cfg(all(feature = "compression", feature = "load-test"))]
+    #[allow(clippy::too_many_arguments)]
+    fn run_compress_internal(
+        input: String,
+        output: Option<String>,
+        level: CompressionLevelArg,
+        context_lib: Option<String>,
+        inline: bool,
+        structured: bool,
+        incremental: bool,
+        previous: Option<String>,
+        anchor_threshold: usize,
+        retention_threshold: usize,
+        model: String,
+        format: CompressionOutputFormat,
+        scoring: CompressionScoringMode,
+        quality: bool,
+        llm_judge: bool,
+        evaluation_model: Option<String>,
+        judge_model: Option<String>,
+        judge_api_key: Option<String>,
+        judge_provider: Option<JudgeProvider>,
     ) -> Result<(), AppError> {
         use crate::compression::compressor::Compressor;
         use crate::compression::context_library::ContextLibraryManager;
@@ -1432,7 +1823,101 @@ impl Cli {
         // Calculate quality metrics if requested (before JSON serialization)
         if quality {
             eprintln!("\nCalculating quality metrics...");
-            match compressor.calculate_quality_metrics(&prompt, &result) {
+
+            #[cfg(all(feature = "compression", feature = "load-test"))]
+            let metrics_result = if llm_judge {
+                // Initialize LLM client for judge evaluation
+                // Default evaluation model: use provided model or fallback to Claude 3 Opus
+                let eval_model = evaluation_model.as_deref().unwrap_or_else(|| {
+                    if model.is_empty() || model == "gpt-4" {
+                        "anthropic/claude-3-opus"
+                    } else {
+                        &model
+                    }
+                });
+                // Get judge model (unwrap since it has a default value)
+                let judge_model_val = judge_model.as_deref().unwrap_or("anthropic/claude-3-opus");
+
+                // Get API key
+                let api_key = judge_api_key
+                    .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
+                    .or_else(|| std::env::var("OPENAI_API_KEY").ok())
+                    .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
+                    .ok_or_else(|| AppError::Config(
+                        "API key required for LLM judge. Set OPENROUTER_API_KEY environment variable or use --judge-api-key".to_string()
+                    ))?;
+
+                // Determine provider
+                let provider = judge_provider.unwrap_or(JudgeProvider::Openrouter);
+
+                // Create client
+                use crate::http::client::{ClientConfig, LlmClientEnum};
+                use crate::http::providers::{
+                    anthropic::AnthropicClient, openai::OpenAIClient, openrouter::OpenRouterClient,
+                };
+                use std::time::Duration;
+
+                let client_config = ClientConfig {
+                    endpoint: String::new(),
+                    api_key: api_key.clone(),
+                    timeout: Duration::from_secs(60),
+                    headers: Vec::new(),
+                };
+
+                let client: Box<dyn crate::http::client::LlmClient> = match provider {
+                    JudgeProvider::Openrouter => Box::new(LlmClientEnum::OpenRouter(
+                        OpenRouterClient::new(client_config)?,
+                    )),
+                    JudgeProvider::Openai => {
+                        Box::new(LlmClientEnum::OpenAI(OpenAIClient::new(client_config)?))
+                    }
+                    JudgeProvider::Anthropic => Box::new(LlmClientEnum::Anthropic(
+                        AnthropicClient::new(client_config)?,
+                    )),
+                };
+
+                eprintln!("Generating output from original prompt...");
+                eprintln!("Generating output from compressed prompt...");
+                eprintln!("Evaluating outputs with LLM judge...");
+
+                // Create tokio runtime for async operations
+                let rt = tokio::runtime::Runtime::new().map_err(|e| {
+                    AppError::Config(format!("Failed to create async runtime: {}", e))
+                })?;
+
+                // Normalize model names
+                use crate::compression::llm_judge::normalize_model_name;
+                let eval_model_norm = normalize_model_name(eval_model);
+                let judge_model_norm = normalize_model_name(judge_model_val);
+
+                rt.block_on(compressor.calculate_quality_metrics(
+                    &prompt,
+                    &result,
+                    Some(&eval_model_norm),
+                    Some(&judge_model_norm),
+                    Some(client.as_ref()),
+                ))
+            } else {
+                // Synchronous version without LLM judge
+                #[cfg(not(all(feature = "compression", feature = "load-test")))]
+                {
+                    compressor.calculate_quality_metrics(&prompt, &result)
+                }
+                #[cfg(all(feature = "compression", feature = "load-test"))]
+                {
+                    let rt = tokio::runtime::Runtime::new().map_err(|e| {
+                        AppError::Config(format!("Failed to create async runtime: {}", e))
+                    })?;
+                    rt.block_on(
+                        compressor.calculate_quality_metrics(&prompt, &result, None, None, None),
+                    )
+                }
+            };
+
+            #[cfg(not(all(feature = "compression", feature = "load-test")))]
+            let metrics_result = compressor.calculate_quality_metrics(&prompt, &result);
+
+            match metrics_result {
                 Ok(metrics) => {
                     // Store metrics in result for JSON output
                     result.quality_metrics = Some(metrics.clone());
@@ -1532,6 +2017,63 @@ impl Cli {
                 eprintln!("   Consider using --level light or reviewing the compressed output.");
             }
             eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+            // Display LLM judge metrics if available
+            #[cfg(all(feature = "compression", feature = "load-test"))]
+            if let Some(ref llm_judge) = metrics.llm_judge {
+                eprintln!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                eprintln!("LLM Judge Evaluation (Output Comparison):");
+                eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                eprintln!("Provider: OpenRouter");
+                eprintln!("Evaluation Model: {}", llm_judge.evaluation_model);
+                eprintln!("Judge Model: {}", llm_judge.judge_model);
+                eprintln!();
+                eprintln!(
+                    "Output Equivalence: {:.0}/100",
+                    llm_judge.output_equivalence
+                );
+                eprintln!(
+                    "Instruction Compliance: {:.0}/100",
+                    llm_judge.instruction_compliance
+                );
+                eprintln!(
+                    "Information Completeness: {:.0}/100",
+                    llm_judge.information_completeness
+                );
+                eprintln!(
+                    "Quality Preservation: {:.0}/100",
+                    llm_judge.quality_preservation
+                );
+                eprintln!(
+                    "Overall Fidelity: {:.0}/100 ({})",
+                    llm_judge.overall_fidelity,
+                    llm_judge.rating()
+                );
+                eprintln!();
+                eprintln!("Justification: {}", llm_judge.justification);
+
+                if !llm_judge.key_differences.is_empty() {
+                    eprintln!();
+                    eprintln!("Key Differences:");
+                    for diff in &llm_judge.key_differences {
+                        eprintln!("  - {}", diff);
+                    }
+                }
+
+                if let Some(cost) = llm_judge.evaluation_cost {
+                    eprintln!();
+                    eprintln!("Evaluation Cost: ${:.4}", cost);
+                }
+
+                if llm_judge.is_acceptable() {
+                    eprintln!("\n✅ LLM judge evaluation indicates acceptable quality (>= 70%)");
+                } else {
+                    eprintln!(
+                        "\n⚠️  LLM judge evaluation indicates quality below threshold (< 70%)"
+                    );
+                }
+                eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            }
         }
 
         if incremental {
@@ -1630,7 +2172,7 @@ impl Cli {
             pb.set_style(
                 ProgressStyle::default_spinner()
                     .template("{spinner:.green} {msg}")
-                    .unwrap(),
+                    .expect("valid spinner template"),
             );
             pb.enable_steady_tick(std::time::Duration::from_millis(100));
 

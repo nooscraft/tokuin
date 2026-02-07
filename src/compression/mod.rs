@@ -31,6 +31,9 @@ pub mod embeddings;
 #[cfg(feature = "compression")]
 pub mod quality;
 
+#[cfg(all(feature = "compression", feature = "load-test"))]
+pub mod llm_judge;
+
 // Re-export main types (public API - may not all be used internally)
 #[allow(unused_imports, dead_code)]
 pub use types::{

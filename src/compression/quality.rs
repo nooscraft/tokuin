@@ -6,6 +6,9 @@ use crate::compression::hieratic_decoder::HieraticDecoder;
 use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 
+#[cfg(all(feature = "compression", feature = "load-test"))]
+use crate::compression::llm_judge::LlmJudgeMetrics;
+
 /// Quality metrics for a compression result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityMetrics {
@@ -23,6 +26,10 @@ pub struct QualityMetrics {
     pub critical_patterns_found: usize,
     /// Number of critical patterns preserved
     pub critical_patterns_preserved: usize,
+    /// LLM-as-a-judge evaluation metrics (output-level comparison)
+    #[cfg(all(feature = "compression", feature = "load-test"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub llm_judge: Option<LlmJudgeMetrics>,
 }
 
 impl QualityMetrics {
@@ -37,6 +44,8 @@ impl QualityMetrics {
             structural_integrity: 0.0,
             critical_patterns_found: 0,
             critical_patterns_preserved: 0,
+            #[cfg(all(feature = "compression", feature = "load-test"))]
+            llm_judge: None,
         }
     }
 
@@ -72,10 +81,147 @@ const CRITICAL_PATTERNS: &[&str] = &[
 ];
 
 /// Calculate quality metrics for a compression result
+///
+/// # Arguments
+///
+/// * `original` - The original uncompressed prompt
+/// * `compressed_hieratic` - The compressed prompt in Hieratic format
+/// * `context_lib_path` - Optional path to context library
+/// * `evaluation_model` - Optional model for LLM judge output generation
+/// * `judge_model` - Optional model for LLM judge evaluation
+/// * `llm_client` - Optional LLM client for judge evaluation (requires load-test feature)
+#[cfg(not(all(feature = "compression", feature = "load-test")))]
 pub fn calculate_quality_metrics(
     original: &str,
     compressed_hieratic: &str,
     context_lib_path: Option<&str>,
+) -> Result<QualityMetrics, AppError> {
+    calculate_quality_metrics_internal(
+        original,
+        compressed_hieratic,
+        context_lib_path,
+        None,
+        None,
+        None,
+    )
+}
+
+#[cfg(all(feature = "compression", feature = "load-test"))]
+pub async fn calculate_quality_metrics(
+    original: &str,
+    compressed_hieratic: &str,
+    context_lib_path: Option<&str>,
+    evaluation_model: Option<&str>,
+    judge_model: Option<&str>,
+    llm_client: Option<&dyn crate::http::client::LlmClient>,
+) -> Result<QualityMetrics, AppError> {
+    calculate_quality_metrics_internal(
+        original,
+        compressed_hieratic,
+        context_lib_path,
+        evaluation_model,
+        judge_model,
+        llm_client,
+    )
+    .await
+}
+
+#[cfg(all(feature = "compression", feature = "load-test"))]
+async fn calculate_quality_metrics_internal(
+    original: &str,
+    compressed_hieratic: &str,
+    context_lib_path: Option<&str>,
+    evaluation_model: Option<&str>,
+    judge_model: Option<&str>,
+    llm_client: Option<&dyn crate::http::client::LlmClient>,
+) -> Result<QualityMetrics, AppError> {
+    // Expand the compressed prompt back to full text
+    let mut decoder = HieraticDecoder::new()?;
+
+    if let Some(path) = context_lib_path {
+        decoder = decoder.load_context_library(path)?;
+    }
+
+    let expanded = decoder.decode(compressed_hieratic)?;
+
+    // 1. Semantic similarity (placeholder - requires embeddings)
+    let semantic_similarity = calculate_semantic_similarity(original, &expanded)?;
+
+    // 2. Critical instruction preservation
+    let (found, preserved) = check_critical_instructions(original, &expanded);
+    let critical_instruction_preservation = if found > 0 {
+        preserved as f64 / found as f64
+    } else {
+        1.0 // No critical patterns means nothing to preserve
+    };
+
+    // 3. Information retention (keyword-based)
+    let information_retention = calculate_information_retention(original, &expanded)?;
+
+    // 4. Structural integrity
+    let structural_integrity = check_structural_integrity(original, &expanded);
+
+    // Calculate overall score (weighted average)
+    let overall_score = (semantic_similarity * 0.4)
+        + (critical_instruction_preservation * 0.3)
+        + (information_retention * 0.2)
+        + (structural_integrity * 0.1);
+
+    // LLM judge evaluation (if enabled)
+    let llm_judge = if let (Some(eval_model), Some(judge_model), Some(client)) =
+        (evaluation_model, judge_model, llm_client)
+    {
+        match crate::compression::llm_judge::evaluate_with_llm_judge(
+            original,
+            &expanded,
+            eval_model,
+            judge_model,
+            client,
+        )
+        .await
+        {
+            Ok(metrics) => Some(metrics),
+            Err(e) => {
+                // Log error but don't fail - graceful degradation
+                eprintln!("⚠️  Warning: LLM judge evaluation failed: {}", e);
+                // If it's a parse error, the error message already includes response preview
+                if !e.to_string().contains("Response preview") {
+                    eprintln!(
+                        "   This may be due to the judge model returning an unexpected format."
+                    );
+                    eprintln!(
+                        "   Try using a different judge model or check the API response format."
+                    );
+                }
+                eprintln!("   Continuing with heuristic metrics only.");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    Ok(QualityMetrics {
+        overall_score,
+        semantic_similarity,
+        critical_instruction_preservation,
+        information_retention,
+        structural_integrity,
+        critical_patterns_found: found,
+        critical_patterns_preserved: preserved,
+        #[cfg(all(feature = "compression", feature = "load-test"))]
+        llm_judge,
+    })
+}
+
+#[cfg(not(all(feature = "compression", feature = "load-test")))]
+fn calculate_quality_metrics_internal(
+    original: &str,
+    compressed_hieratic: &str,
+    context_lib_path: Option<&str>,
+    _evaluation_model: Option<&str>,
+    _judge_model: Option<&str>,
+    _llm_client: Option<&dyn std::any::Any>,
 ) -> Result<QualityMetrics, AppError> {
     // Expand the compressed prompt back to full text
     let mut decoder = HieraticDecoder::new()?;
@@ -117,6 +263,8 @@ pub fn calculate_quality_metrics(
         structural_integrity,
         critical_patterns_found: found,
         critical_patterns_preserved: preserved,
+        #[cfg(all(feature = "compression", feature = "load-test"))]
+        llm_judge: None,
     })
 }
 

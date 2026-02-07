@@ -577,6 +577,89 @@ Or pipe directly to an LLM:
 tokuin expand compressed.hieratic | your-llm-tool
 ```
 
+### LLM-as-a-Judge Evaluation (requires `--features load-test`)
+
+Evaluate compression quality by comparing outputs from original and compressed prompts using an LLM judge. This provides the most accurate assessment of compression quality by testing whether compressed prompts produce equivalent results.
+
+**Setup:**
+
+1. Get an OpenRouter API key: https://openrouter.ai
+2. Set environment variable: `export OPENROUTER_API_KEY="sk-or-..."`
+
+**Basic Usage:**
+
+```bash
+# Enable LLM judge evaluation
+tokuin compress prompt.txt --quality --llm-judge
+
+# Specify evaluation and judge models (defaults to Claude 3 Opus)
+tokuin compress prompt.txt --quality --llm-judge \
+  --evaluation-model anthropic/claude-3-sonnet \
+  --judge-model anthropic/claude-3-opus
+
+# Use custom API key
+tokuin compress prompt.txt --quality --llm-judge \
+  --judge-api-key "sk-or-..." \
+  --judge-provider openrouter
+```
+
+**How It Works:**
+
+1. **Step 1**: Sends original prompt to evaluation model → gets output A
+2. **Step 2**: Sends compressed prompt to evaluation model → gets output B
+3. **Step 3**: Uses judge model to compare outputs A and B
+
+**Output Example:**
+
+```
+LLM Judge Evaluation (Output Comparison):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Provider: OpenRouter
+Evaluation Model: anthropic/claude-3-opus
+Judge Model: anthropic/claude-3-opus
+
+Output Equivalence: 92/100
+Instruction Compliance: 95/100
+Information Completeness: 88/100
+Quality Preservation: 90/100
+Overall Fidelity: 91/100 (Excellent)
+
+Justification: The compressed prompt produces outputs that are semantically
+equivalent to the original, with all critical instructions followed correctly.
+
+Evaluation Cost: $0.012
+```
+
+**Cost Considerations:**
+
+- **Per evaluation**: 3 API calls (2 outputs + 1 judge)
+- **Typical cost**: $0.01-0.05 per evaluation (depending on models and prompt/output lengths)
+- **For 100 prompt benchmark**: ~$1.00-5.00
+- **Optimization tips**:
+  - Use cheaper models for evaluation (`anthropic/claude-3-sonnet` or `openai/gpt-3.5-turbo`) while keeping high-quality judge (`anthropic/claude-3-opus`)
+  - Default models use Anthropic's Claude 3 Opus for both evaluation and judging (best quality)
+  - OpenRouter provides unified pricing and access to 400+ models
+  - Cache outputs for identical prompt pairs (future optimization)
+
+**Model Format:**
+
+OpenRouter uses `provider/model` format:
+- `anthropic/claude-3-opus` (default, best quality)
+- `anthropic/claude-3-sonnet` (good balance)
+- `anthropic/claude-3-haiku` (fastest, lower cost)
+- `openai/gpt-4`
+- `openai/gpt-3.5-turbo`
+
+Simple model names (e.g., `gpt-4`) are automatically converted to OpenRouter format.
+
+**Options:**
+
+- `--llm-judge`: Enable LLM judge evaluation
+- `--evaluation-model <MODEL>`: Model to generate outputs (default: same as `--model` or `anthropic/claude-3-opus`)
+- `--judge-model <MODEL>`: Model to judge outputs (default: `anthropic/claude-3-opus`)
+- `--judge-api-key <KEY>`: API key (or use `OPENROUTER_API_KEY` env var)
+- `--judge-provider <PROVIDER>`: Provider (default: `openrouter`, options: `openai`, `anthropic`, `openrouter`)
+
 ### Use with Load Testing
 
 Measure cost savings:

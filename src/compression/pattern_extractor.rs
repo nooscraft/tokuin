@@ -110,7 +110,10 @@ impl PatternExtractor {
         for group in grouped {
             if group.len() >= self.config.min_frequency {
                 // Use the longest version as the canonical content
-                let canonical = group.iter().max_by_key(|c| c.content.len()).unwrap();
+                let canonical = match group.iter().max_by_key(|c| c.content.len()) {
+                    Some(c) => c,
+                    None => continue, // skip empty groups
+                };
 
                 let tokens = self.tokenizer.count_tokens(&canonical.content)?;
                 if tokens < self.config.min_tokens || tokens > self.config.max_tokens {

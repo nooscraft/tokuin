@@ -231,10 +231,11 @@ impl Compressor {
     ) -> Result<CompressionResult, AppError> {
         use crate::compression::types::CompressionAnchor;
 
-        let previous = config
-            .previous_result
-            .as_ref()
-            .expect("incremental compression requires previous state");
+        let previous = config.previous_result.as_ref().ok_or_else(|| {
+            AppError::Parse(crate::error::ParseError::InvalidFormat(
+                "incremental compression requires previous state".to_string(),
+            ))
+        })?;
 
         let mut anchors = previous.anchors.clone();
         let previous_tokens = previous.original_tokens;
@@ -482,7 +483,7 @@ impl Compressor {
         }
 
         // Sort by score (descending), but keep original index
-        scored_sentences.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        scored_sentences.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
         // Select sentences until we reach target, avoiding duplicates
         let mut selected_indices = std::collections::HashSet::new();
@@ -780,7 +781,7 @@ impl Compressor {
         }
 
         // Sort by score (descending)
-        scored_segments.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        scored_segments.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
         // Select segments until we reach target
         let mut selected = Vec::new();
@@ -1166,6 +1167,7 @@ impl Compressor {
     ///
     /// This expands the compressed prompt and compares it to the original
     /// to measure semantic similarity, critical instruction preservation, etc.
+    #[cfg(not(all(feature = "compression", feature = "load-test")))]
     pub fn calculate_quality_metrics(
         &self,
         original: &str,
@@ -1181,6 +1183,42 @@ impl Compressor {
         // Calculate quality metrics
         let context_lib_path = result.document.context_path.as_deref();
         let metrics = calculate_quality_metrics(original, &compressed_hieratic, context_lib_path)?;
+
+        Ok(metrics)
+    }
+
+    /// Calculate quality metrics for a compression result (async version with LLM judge support)
+    ///
+    /// This expands the compressed prompt and compares it to the original
+    /// to measure semantic similarity, critical instruction preservation, etc.
+    /// Optionally performs LLM-as-a-judge evaluation by comparing outputs.
+    #[cfg(all(feature = "compression", feature = "load-test"))]
+    pub async fn calculate_quality_metrics(
+        &self,
+        original: &str,
+        result: &CompressionResult,
+        evaluation_model: Option<&str>,
+        judge_model: Option<&str>,
+        llm_client: Option<&dyn crate::http::client::LlmClient>,
+    ) -> Result<crate::compression::quality::QualityMetrics, AppError> {
+        use crate::compression::hieratic_encoder::HieraticEncoder;
+        use crate::compression::quality::calculate_quality_metrics;
+
+        // Encode the Hieratic document to text
+        let encoder = HieraticEncoder::new();
+        let compressed_hieratic = encoder.encode(&result.document)?;
+
+        // Calculate quality metrics
+        let context_lib_path = result.document.context_path.as_deref();
+        let metrics = calculate_quality_metrics(
+            original,
+            &compressed_hieratic,
+            context_lib_path,
+            evaluation_model,
+            judge_model,
+            llm_client,
+        )
+        .await?;
 
         Ok(metrics)
     }

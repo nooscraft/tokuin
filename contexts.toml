@@ -1,0 +1,1158 @@
+[metadata]
+version = "1.0"
+format = "hieratic"
+created_at = "2026-02-07T12:55:43.578814+00:00"
+source_directory = "tests/compression_benchmark/prompts"
+total_patterns = 88
+
+[[patterns]]
+id = "examples_001"
+content = "Once you've created a Custom GPT, copy the text below in the Instructions panel. Have questions? Check out [Getting Started Example](https://platform.openai.com/docs/actions/getting-started) to see how this step works in more detail."
+frequency = 2
+avg_tokens = 51
+category = "examples"
+tags = []
+
+[[patterns]]
+id = "examples_002"
+content = "In the above example, replace the query in (3) to retrieves the Gong Call IDs from your custom Salesforce object."
+frequency = 2
+avg_tokens = 24
+category = "examples"
+tags = []
+
+[[patterns]]
+id = "general_003"
+content = "When the user asks you to test the integration, you will make a call to the custom action and display the results"
+frequency = 2
+avg_tokens = 23
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_004"
+content = "*The redirection URI is retrieved from the GPT setup once OAuth has been selected as authentication, on the GPT set-up screen.*"
+frequency = 2
+avg_tokens = 27
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_005"
+content = """
+parameters:
+        - name: Worker!Employee_ID
+          in: query
+          required: true
+          description: The Employee ID of the worker"""
+frequency = 2
+avg_tokens = 30
+category = "general"
+tags = []
+
+[[patterns]]
+id = "examples_006"
+content = """
+example: "2024-11-26"
+                      date:
+                        type: string
+                        format: date
+                        description: The specific date for the time off"""
+frequency = 2
+avg_tokens = 33
+category = "examples"
+tags = []
+
+[[patterns]]
+id = "general_007"
+content = "Can you review my pull request? owner: <org_name>, repo: <repo_name>, pull request number: <PR_Number>"
+frequency = 2
+avg_tokens = 27
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_008"
+content = """
+# **Instructions:**
+
+## Scenarios
+### - When the user asks for information about a specific pull request, follow this 5 step process:
+1"""
+frequency = 2
+avg_tokens = 31
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_009"
+content = """
+[
+  {
+    "id": 1,
+    "category": "Crafting a Compelling Bio",
+    "title": "Create a Professional Bio",
+    "prompt": "Write a GitHub Sponsors bio for my profile that highlights my experience in [your field], the impact of my open source work, and my commitment to community growth"""
+frequency = 5
+avg_tokens = 69
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_010"
+content = """
+",
+    "tags": ["bio", "profile", "introduction"]
+  },
+  {
+    "id": 2,
+    "category": "Crafting a Compelling Bio",
+    "title": "Showcase Top Repositories",
+    "prompt": "Summarize my top three repositories ([repo1], [repo2], [repo3]) in a way that inspires potential sponsors to support my work"""
+frequency = 5
+avg_tokens = 84
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_011"
+content = """
+",
+    "tags": ["bio", "repositories", "showcase"]
+  },
+  {
+    "id": 3,
+    "category": "Explaining Why Funding Matters",
+    "title": "Explain Funding Impact",
+    "prompt": "Create a section for my Sponsors page that explains how funding will help me dedicate more time to [project/topics], support new contributors, and ensure the sustainability of my open source work"""
+frequency = 5
+avg_tokens = 88
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_012"
+content = """
+",
+    "tags": ["funding", "impact", "sustainability"]
+  },
+  {
+    "id": 4,
+    "category": "Explaining Why Funding Matters",
+    "title": "Show Direct Impact",
+    "prompt": "Write a paragraph that shows sponsors the direct impact their funding will have on my projects and the wider community"""
+frequency = 5
+avg_tokens = 72
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_013"
+content = """
+",
+    "tags": ["funding", "impact", "community"]
+  },
+  {
+    "id": 5,
+    "category": "Unlocking New Pricing Tiers",
+    "title": "Suggest Pricing Tiers",
+    "prompt": "Suggest ideas for pricing tiers on GitHub Sponsors, including unique benefits at each level for individuals and companies"""
+frequency = 5
+avg_tokens = 75
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_014"
+content = """
+",
+    "tags": ["pricing", "tiers", "benefits"]
+  },
+  {
+    "id": 6,
+    "category": "Unlocking New Pricing Tiers",
+    "title": "Write Tier Descriptions",
+    "prompt": "Write descriptions for three GitHub Sponsors tiers ($5, $25, $100) that offer increasing value and recognition to supporters"""
+frequency = 5
+avg_tokens = 79
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_015"
+content = """
+",
+    "tags": ["pricing", "tiers", "descriptions"]
+  },
+  {
+    "id": 7,
+    "category": "Spotlighting Your Project",
+    "title": "Create Project Spotlight",
+    "prompt": "Draft a brief 'Project Spotlight' section for my Sponsors page, showcasing the goals, achievements, and roadmap of [project name]"""
+frequency = 5
+avg_tokens = 79
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_016"
+content = """
+",
+    "tags": ["project", "spotlight", "roadmap"]
+  },
+  {
+    "id": 8,
+    "category": "Spotlighting Your Project",
+    "title": "Announce Milestone",
+    "prompt": "Write an announcement for my Sponsors page about a new milestone or feature in [project], encouraging new and existing sponsors to get involved"""
+frequency = 5
+avg_tokens = 79
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_017"
+content = """
+",
+    "tags": ["project", "milestone", "announcement"]
+  },
+  {
+    "id": 9,
+    "category": "Enhancing Community Engagement",
+    "title": "Recognize Sponsors",
+    "prompt": "List ways I can recognize or involve sponsors in my project's community (e"""
+frequency = 5
+avg_tokens = 66
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_018"
+content = """
+",
+    "tags": ["community", "engagement", "recognition"]
+  },
+  {
+    "id": 10,
+    "category": "Enhancing Community Engagement",
+    "title": "Creative Perks",
+    "prompt": "Suggest creative perks or acknowledgments for sponsors to foster a sense of belonging and appreciation"""
+frequency = 5
+avg_tokens = 68
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_019"
+content = """
+",
+    "tags": ["community", "perks", "appreciation"]
+  },
+  {
+    "id": 11,
+    "category": "Crafting a Compelling Bio",
+    "title": "Tell Your Story",
+    "prompt": "Write a personal story about why I started contributing to open source, what drives me, and how sponsorship helps me continue this journey in [field/technology]"""
+frequency = 5
+avg_tokens = 85
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_020"
+content = """
+",
+    "tags": ["bio", "story", "personal"]
+  },
+  {
+    "id": 12,
+    "category": "Explaining Why Funding Matters",
+    "title": "Break Down Costs",
+    "prompt": "Create a transparent breakdown of how sponsor funds will be used (e"""
+frequency = 5
+avg_tokens = 63
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_021"
+content = ", server costs, development tools, conference attendance, dedicated coding time) for my [project type]"
+frequency = 5
+avg_tokens = 20
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_022"
+content = """
+",
+    "tags": ["funding", "transparency", "costs"]
+  },
+  {
+    "id": 13,
+    "category": "Unlocking New Pricing Tiers",
+    "title": "Enterprise Sponsorship",
+    "prompt": "Design enterprise-level sponsorship tiers ($500, $1000, $5000) with benefits like priority support, custom features, and brand visibility for my [project]"""
+frequency = 5
+avg_tokens = 87
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_023"
+content = """
+",
+    "tags": ["pricing", "enterprise", "tiers"]
+  },
+  {
+    "id": 14,
+    "category": "Spotlighting Your Project",
+    "title": "Impact Metrics",
+    "prompt": "Create a compelling data-driven section showing the impact of [project name]: downloads, users helped, issues resolved, and community growth statistics"""
+frequency = 5
+avg_tokens = 76
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_024"
+content = """
+",
+    "tags": ["project", "metrics", "impact"]
+  },
+  {
+    "id": 15,
+    "category": "Enhancing Community Engagement",
+    "title": "Sponsor Hall of Fame",
+    "prompt": "Design a 'Sponsor Hall of Fame' section for my README and Sponsors page that creatively showcases and thanks all contributors at different tiers"""
+frequency = 5
+avg_tokens = 78
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_025"
+content = """
+",
+    "tags": ["community", "recognition", "readme"]
+  },
+  {
+    "id": 16,
+    "category": "Crafting a Compelling Bio",
+    "title": "Future Vision",
+    "prompt": "Write a compelling vision statement about where I see [project/work] going in the next 2-3 years and how sponsors can be part of that journey"""
+frequency = 5
+avg_tokens = 83
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_026"
+content = """
+",
+    "tags": ["bio", "vision", "future"]
+  },
+  {
+    "id": 17,
+    "category": "Explaining Why Funding Matters",
+    "title": "Time Commitment",
+    "prompt": "Explain how sponsorship would allow me to dedicate [X hours/days] per week/month to open source, comparing current volunteer time vs"""
+frequency = 5
+avg_tokens = 77
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_027"
+content = """
+",
+    "tags": ["funding", "time", "commitment"]
+  },
+  {
+    "id": 18,
+    "category": "Unlocking New Pricing Tiers",
+    "title": "Student Tier",
+    "prompt": "Create a special $1-2 student sponsorship tier with meaningful benefits that acknowledges their support while respecting their budget"""
+frequency = 5
+avg_tokens = 73
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_028"
+content = """
+",
+    "tags": ["pricing", "students", "accessibility"]
+  },
+  {
+    "id": 19,
+    "category": "Spotlighting Your Project",
+    "title": "Success Stories",
+    "prompt": "Write 3-5 brief success stories or testimonials from users who have benefited from [project name], showing real-world impact"""
+frequency = 5
+avg_tokens = 74
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_029"
+content = """
+",
+    "tags": ["project", "testimonials", "success"]
+  },
+  {
+    "id": 20,
+    "category": "Enhancing Community Engagement",
+    "title": "Monthly Updates",
+    "prompt": "Create a template for monthly sponsor updates that includes progress, challenges, wins, and upcoming features for [project]"""
+frequency = 5
+avg_tokens = 71
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_030"
+content = """
+{
+  "original_tokens": 76,
+  "compressed_tokens": 55,
+  "compression_ratio": 0.27631578947368424,
+  "tokens_saved": 21,
+  "context_refs": [],
+  "extractive_stats": {
+    "low_relevance_removed": 97,
+    "redundant_removed": 0,
+    "sections_compressed": 1
+  },
+  "document": {
+    "version": "1.0",
+    "context_path": null,
+    "sections": [
+      {
+        "Task": {
+          "content": "Extract the following information from the document: - Full name of the person - Date of birth - Email address - Phone number Response Format: The separator is ALWAYS :: (double colon). Do NOT output any additional text or explanation."
+        }
+      }
+    ]
+  },
+  "anchors": []
+}"""
+frequency = 2
+avg_tokens = 182
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_031"
+content = """
+{
+  "original_tokens": 76,
+  "compressed_tokens": 55,
+  "compression_ratio": 0"""
+frequency = 2
+avg_tokens = 24
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_032"
+content = """
+27631578947368424,
+  "tokens_saved": 21,
+  "context_refs": [],
+  "extractive_stats": {
+    "low_relevance_removed": 97,
+    "redundant_removed": 0,
+    "sections_compressed": 1
+  },
+  "document": {
+    "version": "1"""
+frequency = 2
+avg_tokens = 71
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_033"
+content = """
+0",
+    "context_path": null,
+    "sections": [
+      {
+        "Task": {
+          "content": "Extract the following information from the document: - Full name of the person - Date of birth - Email address - Phone number Response Format: The separator is ALWAYS :: (double colon)"""
+frequency = 2
+avg_tokens = 62
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_034"
+content = """
+{
+        "query": "<choose a question>",
+        "searchTerm": "<choose a search term>"
+    }"""
+frequency = 2
+avg_tokens = 23
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_035"
+content = "1. [**General App Information**](#general-app-information) - Overview of Canvas LMS, its functionality, and the role of ChatGPT's Custom Actions to enhance educational experiences through AI integration."
+frequency = 2
+avg_tokens = 42
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_036"
+content = "2. [**Authentication from ChatGPT to Canvas**](#authentication-from-chatgpt-to-canvas) - Explanation of authentication methods (OAuth and User Generated Access Tokens) for connecting ChatGPT to Canvas, with detailed instructions for setting up each option."
+frequency = 2
+avg_tokens = 53
+category = "general"
+tags = []
+
+[[patterns]]
+id = "examples_037"
+content = "3. [**Sample Use Case: Student Course Assistant**](#sample-use-case-student-course-assistant) - Detailed example of using ChatGPT to assist students with course navigation, exam preparation, and personalized feedback, including specific API calls and workflows."
+frequency = 2
+avg_tokens = 52
+category = "examples"
+tags = []
+
+[[patterns]]
+id = "general_038"
+content = "4. [**Other Use Cases for Consideration**](#other-use-cases-for-consideration) - Additional potential integrations using the Canvas API, such as classroom analytics and report generation."
+frequency = 2
+avg_tokens = 40
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_039"
+content = """
+schema:
+            type: string
+        - name: enrollment_state
+          in: query
+          description: Filter by enrollment state (e"""
+frequency = 2
+avg_tokens = 28
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_040"
+content = """
+schema:
+            type: integer
+        - name: include
+          in: query
+          description: Array of additional information to include (e"""
+frequency = 2
+avg_tokens = 29
+category = "general"
+tags = []
+
+[[patterns]]
+id = "examples_041"
+content = """
+schema:
+            type: integer
+          example: 10
+        - name: page
+          in: query
+          description: The page number to return"""
+frequency = 4
+avg_tokens = 32
+category = "examples"
+tags = []
+
+[[patterns]]
+id = "general_042"
+content = """
+content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      description: The ID of the module item"""
+frequency = 5
+avg_tokens = 42
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_043"
+content = """
+account_id:
+                      type: integer
+                      description: The ID of the account associated with the course"""
+frequency = 3
+avg_tokens = 20
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_044"
+content = """
+enrollment_term_id:
+                      type: integer
+                      description: The ID of the term associated with the course"""
+frequency = 3
+avg_tokens = 22
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_045"
+content = """
+start_at:
+                      type: string
+                      format: date-time
+                      description: The start date of the course"""
+frequency = 6
+avg_tokens = 23
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_046"
+content = """
+parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course"""
+frequency = 3
+avg_tokens = 27
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_047"
+content = """
+properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        start_at:
+                          type: string
+                          format: date-time
+                        end_at:
+                          type: string
+                          format: date-time
+        '400':
+          description: Bad request, possibly due to invalid query parameters"""
+frequency = 2
+avg_tokens = 64
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_048"
+content = """
+schema:
+            type: integer
+        - name: per_page
+          in: query
+          description: The number of results to return per page"""
+frequency = 2
+avg_tokens = 30
+category = "general"
+tags = []
+
+[[patterns]]
+id = "examples_049"
+content = """
+schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: A list of modules in the course"""
+frequency = 2
+avg_tokens = 30
+category = "examples"
+tags = []
+
+[[patterns]]
+id = "general_050"
+content = "**Authentication:** Using the bearer token, it obtains an OBO token from Microsoft's identity platform using getOboToken defined above."
+frequency = 2
+avg_tokens = 27
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_051"
+content = "**Initializing the Graph Client:** With the OBO token, it initializes the Microsoft Graph client using initGraphClient defined above."
+frequency = 2
+avg_tokens = 25
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_052"
+content = "**Document Search:** It constructs a search query and sends it to the Microsoft Graph API to find documents based on the searchTerm."
+frequency = 2
+avg_tokens = 25
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_053"
+content = "- It converts the document to base64 string and restructures it to match the `openaiFileResponse` structure."
+frequency = 2
+avg_tokens = 24
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_054"
+content = """
+---
+title: /vibe
+subtitle: awesome vibe coding prompts to help you build simple apps
+hide_platform_selector: true
+hide_extension_link: true
+hide_tone_selector: true
+subpage: true
+body_class: vibe
+---"""
+frequency = 8
+avg_tokens = 50
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_055"
+content = """
+openai
+openai-agents
+fredapi
+yfinance
+pandas
+numpy
+matplotlib
+seaborn
+scipy
+cvxpy
+arch
+mpmath
+tabulate
+requests
+pydantic
+logging"""
+frequency = 4
+avg_tokens = 47
+category = "general"
+tags = []
+
+[[patterns]]
+id = "role_056"
+content = """
+Before contributing to this repository, please ensure you are adhering to the
+following general guidelines. Further, if you are submitting a new prompt to the
+repository, be sure you are also following the prompt-specific guidelines. These
+checks will ensure that your contributions can be easily integrated into the
+main repository, without any headache for the owners."""
+frequency = 5
+avg_tokens = 69
+category = "role"
+tags = []
+
+[[patterns]]
+id = "general_057"
+content = """
+- [ ] Contributions should be made via a pull request to the main repository
+      from a personal fork.
+- [ ] Pull requests should be accompanied by a descriptive title and detailed
+      explanation.
+- [ ] Submit all pull requests to the repository's main branch.
+- [ ] Before submitting a pull request, ensure additions/edits are aligned with
+      the overall repo organization.
+- [ ] Be sure changes are compatible with the repository's license.
+- [ ] In case of conflicts, provide helpful explanations regarding your proposed
+      changes so that they can be approved by repo owners."""
+frequency = 5
+avg_tokens = 119
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_058"
+content = """
+To add a new prompt to this repository, a contributor should take the following
+steps (in their personal fork):"""
+frequency = 5
+avg_tokens = 23
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_059"
+content = """
+1. Create and test the new prompt.
+   - See the
+     [README](https://github.com/f/awesome-chatgpt-prompts/blob/main/README.md)
+     for guidance on how to write effective prompts.
+   - Ensure prompts generate intended results and can be used by other users to
+     replicate those results.
+2. Add the prompt to `README.md` using the following markdown template:"""
+frequency = 5
+avg_tokens = 83
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_060"
+content = """
+- <b>Note:</b> If your prompt was generated by ChatGPT, append
+     `<mark>Generated by ChatGPT</mark>` to the "Contributed by" line.
+3. Add the prompt to `prompts.csv`.
+   - Put the prompt title in the `act` column, and the prompt itself in the
+     `prompt` column.
+4. Submit a pull request on the repository's main branch.
+   - If possible, provide some documentation of how you tested your prompt and
+     the kinds of results you received.
+   - Be sure to include a detailed title and description."""
+frequency = 5
+avg_tokens = 126
+category = "general"
+tags = []
+
+[[patterns]]
+id = "examples_061"
+content = """
+- [ ] I've confirmed the prompt works well
+- [ ] I've added
+      `Contributed by: [@yourusername](https://github.com/yourusername)`
+- [ ] I've added to the README.md
+- [ ] I've added to the `prompts.csv`
+  - [ ] Escaped quotes by double-quoting them
+  - [ ] No spaces after commas after double quotes. e.g. `"act","prompt"` not
+        `"act", "prompt"`
+  - [ ] Removed "Act as" from the title on CSV"""
+frequency = 5
+avg_tokens = 116
+category = "examples"
+tags = []
+
+[[patterns]]
+id = "role_062"
+content = """
+# Contribution Guidelines
+
+Before contributing to this repository, please ensure you are adhering to the
+following general guidelines"""
+frequency = 5
+avg_tokens = 22
+category = "role"
+tags = []
+
+[[patterns]]
+id = "role_063"
+content = """
+Further, if you are submitting a new prompt to the
+repository, be sure you are also following the prompt-specific guidelines"""
+frequency = 5
+avg_tokens = 24
+category = "role"
+tags = []
+
+[[patterns]]
+id = "general_064"
+content = """
+These
+checks will ensure that your contributions can be easily integrated into the
+main repository, without any headache for the owners"""
+frequency = 5
+avg_tokens = 24
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_065"
+content = """
+## General Guidelines
+
+The following guidelines should be followed when making any open-source
+contributions:
+
+- [ ] Contributions should be made via a pull request to the main repository
+      from a personal fork"""
+frequency = 5
+avg_tokens = 40
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_066"
+content = """
+- [ ] Before submitting a pull request, ensure additions/edits are aligned with
+      the overall repo organization"""
+frequency = 5
+avg_tokens = 23
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_067"
+content = """
+- [ ] In case of conflicts, provide helpful explanations regarding your proposed
+      changes so that they can be approved by repo owners"""
+frequency = 5
+avg_tokens = 26
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_068"
+content = """
+## New Prompt Guidelines
+
+To add a new prompt to this repository, a contributor should take the following
+steps (in their personal fork):
+
+1"""
+frequency = 5
+avg_tokens = 29
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_069"
+content = """
+md` using the following markdown template:
+
+   `## Prompt Title`
+
+   `Contributed by: [@github_username](https://github"""
+frequency = 5
+avg_tokens = 27
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_070"
+content = """
+com/github_profile)`
+
+   `> prompt content`
+
+   - <b>Note:</b> If your prompt was generated by ChatGPT, append
+     `<mark>Generated by ChatGPT</mark>` to the "Contributed by" line"""
+frequency = 5
+avg_tokens = 51
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_071"
+content = """
+- Put the prompt title in the `act` column, and the prompt itself in the
+     `prompt` column"""
+frequency = 5
+avg_tokens = 24
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_072"
+content = """
+- If possible, provide some documentation of how you tested your prompt and
+     the kinds of results you received"""
+frequency = 5
+avg_tokens = 22
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_073"
+content = """
+### New Prompt Checklist:
+
+- [ ] I've confirmed the prompt works well
+- [ ] I've added
+      `Contributed by: [@yourusername](https://github"""
+frequency = 5
+avg_tokens = 36
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_074"
+content = """
+csv`
+  - [ ] Escaped quotes by double-quoting them
+  - [ ] No spaces after commas after double quotes"""
+frequency = 5
+avg_tokens = 26
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_075"
+content = """
+`"act","prompt"` not
+        `"act", "prompt"`
+  - [ ] Removed "Act as" from the title on CSV
+
+Please ensure these requirements are met before submitting a pull request"""
+frequency = 5
+avg_tokens = 41
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_076"
+content = """
+]
+}
+
+Critical Requirements:
+- DO NOT output any text outside the JSON structure
+- Use proper JSON escaping for special characters
+- If a field cannot be extracted, use null
+- Maintain accuracy - do not guess or infer information"""
+frequency = 2
+avg_tokens = 46
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_077"
+content = """
+md | Check repository license |
+| f_awesome-chatgpt-prompts_find-prompt | https://github"""
+frequency = 5
+avg_tokens = 22
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_078"
+content = """
+com/f/awesome-chatgpt-prompts/blob/main/scripts/find-prompt | Check repository license |
+| f_awesome-chatgpt-prompts_index"""
+frequency = 5
+avg_tokens = 30
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_079"
+content = """
+txt | Synthetic - Real-world pattern | MIT |
+| f_awesome-chatgpt-prompts_CONTRIBUTING"""
+frequency = 3
+avg_tokens = 23
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_080"
+content = """
+ipynb | Check repository license |
+| openai_openai-cookbook_Prompt_migration_guide"""
+frequency = 4
+avg_tokens = 20
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_081"
+content = """
+ipynb | Check repository license |
+| openai_openai-cookbook_Unit_test_writing_using_a_multi-step_prompt_with_older_completions_API"""
+frequency = 2
+avg_tokens = 32
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_082"
+content = """
+ipynb | Check repository license |
+| openai_openai-cookbook_Using_Azure_Functions_and_Microsoft_Graph_to_Query_SharePoint"""
+frequency = 5
+avg_tokens = 32
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_083"
+content = """
+ipynb | Check repository license |
+| openai_openai-cookbook_Whisper_prompting_guide"""
+frequency = 3
+avg_tokens = 22
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_084"
+content = """
+ipynb | Check repository license |
+| openai_openai-cookbook_gpt_action_github"""
+frequency = 2
+avg_tokens = 21
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_085"
+content = """
+md | Check repository license |
+| openai_openai-cookbook_gpt_action_retool_workflow"""
+frequency = 2
+avg_tokens = 20
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_086"
+content = """
+md | Check repository license |
+| openai_openai-cookbook_gpt_action_salesforce_gong"""
+frequency = 4
+avg_tokens = 21
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_087"
+content = """
+md | Check repository license |
+| openai_openai-cookbook_gpt_middleware_google_cloud_function"""
+frequency = 5
+avg_tokens = 21
+category = "general"
+tags = []
+
+[[patterns]]
+id = "general_088"
+content = """
+---
+title: /github sponsors profile
+subtitle: Improve your GitHub Sponsors profile with AI-powered prompts
+hide_platform_selector: true
+hide_extension_link: true
+hide_tone_selector: true
+subpage: true
+body_class: sponsors
+---
+
+<script src="script"""
+frequency = 2
+avg_tokens = 55
+category = "general"
+tags = []
