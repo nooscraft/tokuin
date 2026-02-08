@@ -42,8 +42,8 @@ pulldown-cmark = { version = "0.9", optional = true }
 #   Windows: Download from https://cmake.org/download/
 sentencepiece = { version = "0.12", optional = true }
 
-# HTTP client for load testing
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
+# HTTP client for load testing and model downloading
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "blocking"], optional = true }
 async-trait = { version = "0.1", optional = true }
 
 # Progress bars for load testing
@@ -74,8 +74,8 @@ chrono = { version = "0.4", optional = true, features = ["serde"] }
 uuid = { version = "1.7", optional = true, features = ["v4", "serde"] }
 
 # Embedding models for semantic scoring (optional)
-# ONNX Runtime for embedding model inference
-ort = { version = "2.0.0-rc.10", optional = true }
+# ONNX Runtime for embedding model inference (use rustls to avoid OpenSSL dependency)
+ort = { version = "2.0.0-rc.11", default-features = false, features = ["download-binaries", "tls-rustls", "ndarray", "copy-dylibs", "std"], optional = true }
 # Array operations for ONNX tensors
 ndarray = { version = "0.15", optional = true }
 # CPU detection for ONNX thread configuration
@@ -83,9 +83,6 @@ num_cpus = { version = "1.16", optional = true }
 
 # Tokenizer for embeddings
 tokenizers = { version = "0.15", optional = true }
-
-# HuggingFace Hub for model downloading
-hf-hub = { version = "0.3", optional = true }
 
 # Directory utilities for model caching
 dirs = { version = "5.0", optional = true }
@@ -100,7 +97,7 @@ gemini = []  # Gemini works without sentencepiece (uses approximation)
 gemini-sentencepiece = ["sentencepiece"]
 load-test = ["tokio", "reqwest", "async-trait", "indicatif", "hdrhistogram", "serde_yaml", "fastrand"]
 compression = ["strsim", "regex", "chrono", "uuid"]
-compression-embeddings = ["compression", "tokenizers", "hf-hub", "dirs", "ort", "ndarray", "num_cpus"]
+compression-embeddings = ["compression", "tokenizers", "dirs", "ort", "ndarray", "num_cpus", "load-test"]
 all = ["openai", "watch", "markdown", "gemini", "load-test", "compression", "compression-embeddings"]
 
 [dev-dependencies]

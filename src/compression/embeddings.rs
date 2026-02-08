@@ -286,8 +286,8 @@ mod onnx_impl {
                 return Ok(model_path);
             }
 
-            // Try to download if hf-hub is available
-            #[cfg(feature = "hf-hub")]
+            // Try to download if compression-embeddings is available
+            #[cfg(feature = "compression-embeddings")]
             {
                 let mut needs_download = false;
                 if !tokenizer_file.exists() {
@@ -346,110 +346,130 @@ mod onnx_impl {
 
         /// Download model files from HuggingFace
         /// Uses hf-hub if available, falls back to direct HTTP download
-        #[cfg(feature = "hf-hub")]
+        #[cfg(feature = "compression-embeddings")]
         fn download_from_huggingface(model_path: &Path) -> Result<(), AppError> {
             let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-            let _tokenizer_file = model_path.join("tokenizer.json");
 
-            // Try hf-hub first
-            eprintln!("Attempting download via hf-hub...");
-            match Self::download_via_hf_hub(model_path, model_id, true, false) {
-                Ok(()) => {
-                    eprintln!("✓ Tokenizer downloaded successfully via hf-hub");
-                    return Ok(());
-                }
-                Err(e) => {
-                    eprintln!("⚠️  hf-hub download failed: {}", e);
-                    eprintln!("   Falling back to direct HTTP download...");
-                }
-            }
-
-            // Fallback: Direct HTTP download
-            Self::download_via_http(model_path, model_id)
+            // Download using reqwest (no OpenSSL dependency, uses rustls)
+            Self::download_files_http(model_path, model_id, true, false)
         }
 
         /// Download tokenizer from HuggingFace
-        #[cfg(feature = "hf-hub")]
+        #[cfg(feature = "compression-embeddings")]
         pub fn download_tokenizer(model_path: &Path) -> Result<(), AppError> {
             let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-            Self::download_via_hf_hub(model_path, model_id, true, false)
+            Self::download_files_http(model_path, model_id, true, false)
         }
 
         /// Download ONNX model from HuggingFace (if available)
-        #[cfg(feature = "hf-hub")]
+        #[cfg(feature = "compression-embeddings")]
         pub fn download_onnx_model(model_path: &Path) -> Result<(), AppError> {
             let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-            Self::download_via_hf_hub(model_path, model_id, false, true)
+            Self::download_files_http(model_path, model_id, false, true)
         }
 
-        /// Download using hf-hub crate
+        /// Download using HTTP (reqwest with rustls - no OpenSSL dependency)
         ///
         /// Downloads the tokenizer (required) and attempts to download the ONNX model
         /// (optional, for future full inference support).
-        #[cfg(feature = "hf-hub")]
-        fn download_via_hf_hub(
+        #[cfg(feature = "compression-embeddings")]
+        fn download_files_http(
             model_path: &Path,
             model_id: &str,
             download_tokenizer: bool,
             download_onnx: bool,
         ) -> Result<(), AppError> {
-            use hf_hub::api::sync::Api;
+            // Use reqwest blocking client (which uses rustls-tls, no OpenSSL dependency)
+            #[cfg(feature = "load-test")]
+            {
+                let client = reqwest::blocking::Client::new();
+                let base_url = format!("https://huggingface.co/{}/resolve/main", model_id);
 
-            let api = Api::new().map_err(|e| {
-                AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
-                    "Failed to initialize HuggingFace API: {}",
-                    e
-                )))
-            })?;
-
-            let repo = api.model(model_id.to_string());
-
-            // Download tokenizer (required for placeholder embeddings)
-            if download_tokenizer {
-                let tokenizer_file = model_path.join("tokenizer.json");
-                if !tokenizer_file.exists() {
-                    let tokenizer_path = repo.get("tokenizer.json").map_err(|e| {
-                        AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
-                            "hf-hub tokenizer download failed: {}",
-                            e
-                        )))
-                    })?;
-                    std::fs::copy(&tokenizer_path, &tokenizer_file).map_err(|e| {
-                        AppError::Io(std::io::Error::other(format!(
-                            "Failed to copy tokenizer: {}",
-                            e
-                        )))
-                    })?;
-                }
-            }
-
-            // Try to download ONNX model (for future full inference support)
-            // Note: Most sentence-transformers models don't have pre-converted ONNX files
-            // Users will need to convert them manually using optimum-cli
-            if download_onnx {
-                let model_file = model_path.join("model.onnx");
-                if !model_file.exists() {
-                    // Check if ONNX model exists in the repo (unlikely for most models)
-                    if let Ok(onnx_path) = repo.get("model.onnx") {
-                        std::fs::copy(&onnx_path, &model_file).map_err(|e| {
-                            AppError::Io(std::io::Error::other(format!(
-                                "Failed to copy ONNX model: {}",
+                // Download tokenizer (required for placeholder embeddings)
+                if download_tokenizer {
+                    let tokenizer_file = model_path.join("tokenizer.json");
+                    if !tokenizer_file.exists() {
+                        let url = format!("{}/tokenizer.json", base_url);
+                        eprintln!("Downloading from: {}", url);
+                        let response = client.get(&url).send().map_err(|e| {
+                            AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                                "Failed to download tokenizer: {}",
                                 e
                             )))
                         })?;
-                    } else {
-                        return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
-                            "ONNX model not found in HuggingFace repo. Convert manually using optimum-cli.".to_string()
-                        )));
+
+                        let bytes = response.bytes().map_err(|e| {
+                            AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                                "Failed to read tokenizer response: {}",
+                                e
+                            )))
+                        })?;
+
+                        std::fs::write(&tokenizer_file, &bytes).map_err(|e| {
+                            AppError::Io(std::io::Error::other(format!(
+                                "Failed to write tokenizer file: {}",
+                                e
+                            )))
+                        })?;
+                        eprintln!("✓ Tokenizer downloaded successfully via HTTP");
                     }
                 }
+
+                // Try to download ONNX model (for future full inference support)
+                // Note: Most sentence-transformers models don't have pre-converted ONNX files
+                // Users will need to convert them manually using optimum-cli
+                if download_onnx {
+                    let model_file = model_path.join("model.onnx");
+                    if !model_file.exists() {
+                        let url = format!("{}/model.onnx", base_url);
+                        eprintln!("Attempting to download ONNX model...");
+                        let response = client.get(&url).send().map_err(|e| {
+                            AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                                "Failed to download ONNX model (likely doesn't exist): {}. Convert manually using optimum-cli.",
+                                e
+                            )))
+                        })?;
+
+                        if response.status().is_success() {
+                            let bytes = response.bytes().map_err(|e| {
+                                AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
+                                    "Failed to read ONNX model response: {}",
+                                    e
+                                )))
+                            })?;
+                            std::fs::write(&model_file, &bytes).map_err(|e| {
+                                AppError::Io(std::io::Error::other(format!(
+                                    "Failed to write ONNX model file: {}",
+                                    e
+                                )))
+                            })?;
+                            eprintln!("✓ ONNX model downloaded successfully");
+                        } else {
+                            return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                                "ONNX model not found in HuggingFace repo. Convert manually using optimum-cli.".to_string()
+                            )));
+                        }
+                    }
+                }
+
+                Ok(())
             }
 
-            Ok(())
+            #[cfg(not(feature = "load-test"))]
+            {
+                let _base_url = format!("https://huggingface.co/{}/resolve/main", model_id);
+                let tokenizer_file = model_path.join("tokenizer.json");
+
+                Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                    format!("HTTP client not available. Please download tokenizer manually from {}/tokenizer.json to {:?}", 
+                        _base_url, tokenizer_file)
+                )))
+            }
         }
 
-        /// Download using direct HTTP (fallback when hf-hub fails)
-        #[cfg(feature = "hf-hub")]
+        /// Download using direct HTTP (fallback when reqwest is not available)
+        #[cfg(feature = "compression-embeddings")]
+        #[allow(dead_code)]
         fn download_via_http(model_path: &Path, model_id: &str) -> Result<(), AppError> {
             let tokenizer_url = format!(
                 "https://huggingface.co/{}/resolve/main/tokenizer.json",
@@ -482,7 +502,8 @@ mod onnx_impl {
         }
 
         /// Download using reqwest (requires blocking feature) or curl fallback
-        #[cfg(all(feature = "hf-hub", feature = "load-test"))]
+        #[cfg(all(feature = "compression-embeddings", feature = "load-test"))]
+        #[allow(dead_code)]
         fn download_via_reqwest(model_path: &Path, url: &str) -> Result<(), AppError> {
             use std::process::Command;
 
@@ -870,16 +891,16 @@ pub fn download_models(
             report("Downloading tokenizer...");
         }
 
-        #[cfg(feature = "hf-hub")]
+        #[cfg(feature = "compression-embeddings")]
         {
             OnnxEmbeddingProvider::download_tokenizer(&model_path)?;
             report("✓ Tokenizer downloaded successfully");
         }
 
-        #[cfg(not(feature = "hf-hub"))]
+        #[cfg(not(feature = "compression-embeddings"))]
         {
             return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
-                "hf-hub feature not enabled. Cannot download models.".to_string(),
+                "compression-embeddings feature not enabled. Cannot download models.".to_string(),
             )));
         }
     } else {
@@ -894,7 +915,7 @@ pub fn download_models(
             report("Downloading/converting ONNX model...");
         }
 
-        #[cfg(feature = "hf-hub")]
+        #[cfg(feature = "compression-embeddings")]
         {
             // Try to download from HuggingFace first
             if OnnxEmbeddingProvider::download_onnx_model(&model_path).is_err() {
