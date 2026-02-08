@@ -115,12 +115,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install OpenSSL dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -138,15 +132,10 @@ jobs:
 
       - name: Build
         shell: bash
-        env:
-          OPENSSL_STATIC: 1
-          OPENSSL_LIB_DIR: /usr/lib
-          OPENSSL_INCLUDE_DIR: /usr/include
         run: |
           set -euxo pipefail
           if [ "${{ matrix.use_cross }}" = "true" ]; then
-            # For cross-compilation, use vendored OpenSSL
-            OPENSSL_STATIC=1 cross build --locked --release --features all --target ${{ matrix.target }}
+            cross build --locked --release --features all --target ${{ matrix.target }}
           else
             cargo build --locked --release --features all --target ${{ matrix.target }}
           fi
