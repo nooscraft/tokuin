@@ -3,10 +3,12 @@
 passthrough = [
     "ORT_LIB_LOCATION",
     "ORT_SKIP_DOWNLOAD",
+    "CARGO_HOME",
 ]
 
 [target.aarch64-unknown-linux-gnu]
 # Mount the ort cache directory into the container
+# The container runs as root, so mount to /root
 volumes = [
     "${HOME}/.cache:/root/.cache:rw",
 ]
