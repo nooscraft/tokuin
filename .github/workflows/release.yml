@@ -130,11 +130,28 @@ jobs:
           name: embedding-models
           path: models/
 
+      - name: Cache ONNX Runtime binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ort.pyke.io
+          key: ort-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ort-${{ matrix.target }}-
+
       - name: Build
         shell: bash
         run: |
           set -euxo pipefail
+          
+          # Create cache directory with proper permissions
+          # For cross, it will be mounted into the container
+          mkdir -p "$HOME/.cache/ort.pyke.io"
+          chmod -R 755 "$HOME/.cache/ort.pyke.io" || true
+          
           if [ "${{ matrix.use_cross }}" = "true" ]; then
+            # Cross runs in Docker, so we need to ensure cache dir is accessible
+            # The container will use /root/.cache by default
             cross build --locked --release --features all --target ${{ matrix.target }}
           else
             cargo build --locked --release --features all --target ${{ matrix.target }}
