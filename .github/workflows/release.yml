@@ -115,6 +115,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install OpenSSL dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
