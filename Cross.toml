@@ -1,0 +1,17 @@
+[build.env]
+# Pass through environment variables for ort-sys
+passthrough = [
+    "ORT_LIB_LOCATION",
+    "ORT_SKIP_DOWNLOAD",
+]
+
+[target.aarch64-unknown-linux-gnu]
+# Mount the ort cache directory into the container
+volumes = [
+    "${HOME}/.cache:/root/.cache:rw",
+]
+
+[target.x86_64-unknown-linux-gnu]
+volumes = [
+    "${HOME}/.cache:/root/.cache:rw",
+]
