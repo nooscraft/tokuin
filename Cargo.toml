@@ -46,6 +46,9 @@ sentencepiece = { version = "0.12", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 async-trait = { version = "0.1", optional = true }
 
+# OpenSSL with vendored feature for cross-compilation
+openssl = { version = "0.10", features = ["vendored"], optional = true }
+
 # Progress bars for load testing
 indicatif = { version = "0.17", optional = true }
 
@@ -98,9 +101,9 @@ markdown = ["pulldown-cmark"]
 gemini = []  # Gemini works without sentencepiece (uses approximation)
 # For exact Gemini tokenization, enable sentencepiece: gemini-sentencepiece = ["sentencepiece"]
 gemini-sentencepiece = ["sentencepiece"]
-load-test = ["tokio", "reqwest", "async-trait", "indicatif", "hdrhistogram", "serde_yaml", "fastrand"]
+load-test = ["tokio", "reqwest", "async-trait", "indicatif", "hdrhistogram", "serde_yaml", "fastrand", "openssl"]
 compression = ["strsim", "regex", "chrono", "uuid"]
-compression-embeddings = ["compression", "tokenizers", "hf-hub", "dirs", "ort", "ndarray", "num_cpus"]
+compression-embeddings = ["compression", "tokenizers", "hf-hub", "dirs", "ort", "ndarray", "num_cpus", "openssl"]
 all = ["openai", "watch", "markdown", "gemini", "load-test", "compression", "compression-embeddings"]
 
 [dev-dependencies]
