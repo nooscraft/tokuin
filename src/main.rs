@@ -10,6 +10,9 @@ mod parsers;
 mod tokenizers;
 mod utils;
 
+#[cfg(feature = "compression")]
+mod compression;
+
 #[cfg(feature = "load-test")]
 mod http;
 #[cfg(feature = "load-test")]

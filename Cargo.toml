@@ -61,6 +61,35 @@ fastrand = { version = "2.0", optional = true }
 # Directory traversal for prompt library analysis
 walkdir = "2.4"
 
+# String similarity for compression
+strsim = { version = "0.11", optional = true }
+
+# Regex for Hieratic parsing
+regex = { version = "1.10", optional = true }
+
+# Time for context library timestamps
+chrono = { version = "0.4", optional = true, features = ["serde"] }
+
+# UUID for anchor IDs
+uuid = { version = "1.7", optional = true, features = ["v4", "serde"] }
+
+# Embedding models for semantic scoring (optional)
+# ONNX Runtime for embedding model inference
+ort = { version = "2.0.0-rc.10", optional = true }
+# Array operations for ONNX tensors
+ndarray = { version = "0.15", optional = true }
+# CPU detection for ONNX thread configuration
+num_cpus = { version = "1.16", optional = true }
+
+# Tokenizer for embeddings
+tokenizers = { version = "0.15", optional = true }
+
+# HuggingFace Hub for model downloading
+hf-hub = { version = "0.3", optional = true }
+
+# Directory utilities for model caching
+dirs = { version = "5.0", optional = true }
+
 [features]
 default = ["openai"]
 openai = ["tiktoken-rs"]
@@ -70,7 +99,9 @@ gemini = []  # Gemini works without sentencepiece (uses approximation)
 # For exact Gemini tokenization, enable sentencepiece: gemini-sentencepiece = ["sentencepiece"]
 gemini-sentencepiece = ["sentencepiece"]
 load-test = ["tokio", "reqwest", "async-trait", "indicatif", "hdrhistogram", "serde_yaml", "fastrand"]
-all = ["openai", "watch", "markdown", "gemini", "load-test"]
+compression = ["strsim", "regex", "chrono", "uuid"]
+compression-embeddings = ["compression", "tokenizers", "hf-hub", "dirs", "ort", "ndarray", "num_cpus"]
+all = ["openai", "watch", "markdown", "gemini", "load-test", "compression", "compression-embeddings"]
 
 [dev-dependencies]
 # Testing

@@ -20,3 +20,39 @@ Thumbs.db
 
 # Ignore docs folder
 docs/
+
+# Compression benchmark - ignore downloaded prompts (can be regenerated)
+tests/compression_benchmark/prompts/**/*.txt
+tests/compression_benchmark/prompts/**/*.md
+tests/compression_benchmark/prompts/**/*.ipynb
+tests/compression_benchmark/prompts/**/*.json
+tests/compression_benchmark/prompts/**/*.csv
+# Keep METADATA.md (it's documentation)
+!tests/compression_benchmark/prompts/METADATA.md
+# Keep a few small example prompts for quick testing
+!tests/compression_benchmark/prompts/instructions/data_extraction.txt
+!tests/compression_benchmark/prompts/conversations/multi_turn.txt
+!tests/compression_benchmark/prompts/technical/api_documentation.txt
+!tests/compression_benchmark/prompts/structured/json_schema.txt
+!tests/compression_benchmark/prompts/mixed/complex_task.txt
+
+# Compression benchmark results
+tests/compression_benchmark/results/
+# Generated benchmark report
+COMPRESSION_BENCHMARK_REPORT.md
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Python virtual environments
+venv/
+env/
+ENV/
+
+# Python package files (uv)
+uv.lock
+.python-version
