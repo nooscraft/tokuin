@@ -130,31 +130,27 @@ jobs:
           name: embedding-models
           path: models/
 
+      - name: Prepare cache dirs for ort-sys
+        shell: bash
+        run: |
+          echo "HOME=${HOME:-/home/runner}" >> $GITHUB_ENV
+          echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
+          mkdir -p "${{ runner.temp }}/.cache"
+
       - name: Cache ONNX Runtime binaries
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/ort.pyke.io
-          key: ort-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          path: ${{ runner.temp }}/.cache/ort.pyke.io
+          key: ort-cache-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ort-${{ matrix.target }}-
+            ort-cache-${{ runner.os }}-${{ matrix.target }}-
+            ort-cache-${{ runner.os }}-
 
       - name: Build
         shell: bash
-        env:
-          # Ensure cargo can find the cache even in cross containers
-          CARGO_HOME: ${{ github.workspace }}/.cargo
         run: |
           set -euxo pipefail
-          
-          # Create cache directory with proper permissions
-          mkdir -p "$HOME/.cache/ort.pyke.io"
-          mkdir -p "$CARGO_HOME"
-          
           if [ "${{ matrix.use_cross }}" = "true" ]; then
-            # For cross (Docker container), we need to ensure proper environment
-            # Create cache in a location that will be mounted
-            export CROSS_CONTAINER_HOME="/root"
             cross build --locked --release --features all --target ${{ matrix.target }}
           else
             cargo build --locked --release --features all --target ${{ matrix.target }}
