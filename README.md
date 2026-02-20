@@ -39,9 +39,7 @@ Release binaries are built with `--features all`. Embedding-based semantic scori
 | Linux aarch64 | ✅ | ✅ | ❌ heuristic only | ✅ |
 | Windows x86_64 | ✅ | ✅ | ❌ heuristic only | ✅ |
 
-Platforms without embedding scoring still have full compression — quality metrics use heuristic scoring instead of embedding-based semantic similarity.
-
-For full embedding support on any platform, build from source with `--features all,compression-embeddings`.
+Platforms without embedding scoring still have full compression — quality metrics use heuristic scoring instead of embedding-based semantic similarity. See [Platform Support for Embedding Model Loading](#platform-support-for-embedding-model-loading) for the technical reasons and how to get full support on any platform.
 
 ### Quick Install (Windows PowerShell)
 
@@ -314,16 +312,86 @@ tokuin expand compressed.hieratic | your-llm-tool
 - ❌ Single-sentence instructions — format overhead not worth it
 - ❌ Prompts where exact wording is critical (legal, medical) — always verify with `--quality`
 
-**Scoring limitations (without `compression-embeddings`):**
-- Heuristic scoring uses keyword matching and position weighting — it can miss semantic drift
-- Always use `--quality --scoring semantic` (or `--llm-judge`) on prompts where accuracy matters
-- Platforms without embedding support: Linux aarch64, macOS Intel, Windows
-
 **General caveats:**
 - Compression quality varies by prompt type and content; results are not guaranteed
 - `aggressive` level may lose nuance; validate outputs on your specific use case
 - Hieratic is a Tokuin-specific format — LLMs understand it, but it is not a standard
 - The compressed output is not human-readable without familiarity with the format
+
+---
+
+### Platform Support for Embedding Model Loading
+
+Embedding-based semantic scoring (`--scoring semantic` / `--scoring hybrid`) requires loading an ONNX Runtime model at runtime. The ONNX Runtime ships prebuilt native libraries, and not all of them are compatible with every CI build toolchain. As a result, **release binaries only include embedding support on a subset of platforms**.
+
+#### What each platform gets
+
+| Platform | Binary includes embeddings | Scoring available | Model loading |
+|---|---|---|---|
+| **Linux x86_64** | ✅ Yes | semantic, hybrid, heuristic | `tokuin setup models` |
+| **macOS Apple Silicon** (aarch64) | ✅ Yes | semantic, hybrid, heuristic | `tokuin setup models` |
+| **macOS Intel** (x86_64) | ❌ No | heuristic only | N/A — no ONNX prebuilt |
+| **Linux aarch64** | ❌ No | heuristic only | N/A — ABI mismatch in cross build |
+| **Windows x86_64** | ❌ No | heuristic only | N/A — CRT conflict |
+
+#### Why each platform is limited
+
+**macOS Intel (x86_64):** The ONNX Runtime does not publish prebuilt binaries for `x86_64-apple-darwin` with the feature set used in CI builds. Intel Macs are increasingly rare and ort has shifted focus to Apple Silicon.
+
+**Linux aarch64:** The CI builds `aarch64-unknown-linux-gnu` via cross-compilation using a Docker container. The container's C++ standard library is too old to link against the prebuilt ONNX Runtime binary (missing `__cxa_call_terminate` and `std::filesystem` symbols). Native aarch64 Linux hosts (e.g. AWS Graviton, Raspberry Pi 4) can build with full embedding support.
+
+**Windows x86_64:** The ONNX Runtime DLL is linked against the dynamic C runtime (`msvcprt.lib`), but Rust on MSVC links against the static C runtime (`libcpmt.lib`). This causes `LNK2005` multiply-defined symbol errors at link time. There is no simple workaround without switching the entire build to dynamic CRT, which has other tradeoffs.
+
+#### What happens at runtime on unsupported platforms
+
+If you run `--scoring semantic` or `--scoring hybrid` on a binary built without `compression-embeddings`, Tokuin automatically falls back to heuristic scoring and prints a notice:
+
+```
+ℹ️  Embedding scoring requested but not available in this build.
+   Falling back to heuristic scoring.
+   Build with --features compression-embeddings for semantic/hybrid scoring.
+```
+
+Quality metrics still work — they just use keyword matching and position-based weighting instead of embedding cosine similarity.
+
+#### Getting full embedding support on any platform
+
+Build from source on a **native** host (not cross-compiled):
+
+```bash
+git clone https://github.com/nooscraft/tokuin.git
+cd tokuin
+
+# Build with embedding support
+cargo build --release --features all,compression-embeddings
+
+# Download embedding models
+./target/release/tokuin setup models
+
+# Verify
+./target/release/tokuin compress prompt.txt --scoring semantic --quality
+```
+
+The `setup models` command downloads `all-MiniLM-L6-v2` from HuggingFace and caches it at `~/.cache/tokuin/models/`. It requires internet access on first run only.
+
+#### Model setup options
+
+```bash
+# Download tokenizer (required for semantic scoring)
+tokuin setup models
+
+# Also download ONNX model file (optional, higher quality inference)
+tokuin setup models --onnx
+
+# Force re-download
+tokuin setup models --force
+```
+
+**Troubleshooting model download:**
+- If `setup models` fails, check your internet connection and try again
+- The models are fetched directly from HuggingFace over HTTPS using rustls (no system TLS dependency)
+- If the download consistently fails, you can manually place `tokenizer.json` at `~/.cache/tokuin/models/all-MiniLM-L6-v2/tokenizer.json`
+- Compression itself (`--scoring heuristic`) never requires model download
 
 ---
 
