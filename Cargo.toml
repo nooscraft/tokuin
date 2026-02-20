@@ -107,7 +107,10 @@ gemini-sentencepiece = ["sentencepiece"]
 load-test = ["tokio", "reqwest", "async-trait", "indicatif", "hdrhistogram", "serde_yaml", "fastrand"]
 compression = ["strsim", "regex", "chrono", "uuid"]
 compression-embeddings = ["compression", "tokenizers", "dirs", "ort", "ndarray", "num_cpus", "load-test"]
-all = ["openai", "watch", "markdown", "gemini", "load-test", "compression", "compression-embeddings"]
+# `all` intentionally excludes `compression-embeddings`: ort's prebuilt ONNX Runtime
+# binaries are incompatible with cross-compilation and multiple platform toolchains.
+# Build with --features compression-embeddings explicitly on a native host for embedding support.
+all = ["openai", "watch", "markdown", "gemini", "load-test", "compression"]
 
 [dev-dependencies]
 # Testing

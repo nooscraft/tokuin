@@ -1,9 +1,4 @@
 [build.env]
-# Pass through any env vars needed for cargo/ort that aren't handled via
-# CROSS_CONTAINER_OPTS in the workflow. XDG_CACHE_HOME is intentionally
-# NOT listed here because it's injected via CROSS_CONTAINER_OPTS with a
-# matching volume mount, ensuring the host path is actually accessible
-# inside the container.
 passthrough = [
     "CARGO_TERM_COLOR",
 ]

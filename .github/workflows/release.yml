@@ -12,80 +12,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  prepare-models:
-    name: Prepare Embedding Models
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install optimum[exporters] transformers huggingface-hub
-
-      - name: Download tokenizer
-        run: |
-          set -euxo pipefail
-          mkdir -p models/all-MiniLM-L6-v2
-          
-          echo "Downloading tokenizer from HuggingFace..."
-          python3 << 'PYTHON'
-          from huggingface_hub import hf_hub_download
-          import os
-          
-          model_id = "sentence-transformers/all-MiniLM-L6-v2"
-          cache_dir = "models/all-MiniLM-L6-v2"
-          
-          try:
-              tokenizer_path = hf_hub_download(
-                  repo_id=model_id,
-                  filename="tokenizer.json",
-                  cache_dir=cache_dir,
-                  local_dir=cache_dir,
-                  local_dir_use_symlinks=False
-              )
-              print(f"✓ Tokenizer downloaded to {tokenizer_path}")
-          except Exception as e:
-              print(f"Error downloading tokenizer: {e}")
-              # Fallback: try direct download
-              import urllib.request
-              url = f"https://huggingface.co/{model_id}/resolve/main/tokenizer.json"
-              dest = os.path.join(cache_dir, "tokenizer.json")
-              urllib.request.urlretrieve(url, dest)
-              print(f"✓ Tokenizer downloaded via direct HTTP")
-          PYTHON
-
-      - name: Convert ONNX model
-        run: |
-          set -euxo pipefail
-          echo "Converting model to ONNX format..."
-          optimum-cli export onnx --model sentence-transformers/all-MiniLM-L6-v2 models/all-MiniLM-L6-v2/ || {
-            echo "⚠️  ONNX conversion failed or model already exists. Continuing..."
-          }
-          
-          if [ -f "models/all-MiniLM-L6-v2/model.onnx" ]; then
-            echo "✓ ONNX model ready"
-          else
-            echo "⚠️  ONNX model not created (this is optional)"
-          fi
-
-      - name: Upload models artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: embedding-models
-          path: models/
-          retention-days: 1
-
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
-    needs: prepare-models
     strategy:
       fail-fast: false
       matrix:
@@ -124,41 +53,11 @@ jobs:
         if: ${{ matrix.use_cross }}
         run: cargo install cross --locked
 
-      - name: Download models
-        uses: actions/download-artifact@v4
-        with:
-          name: embedding-models
-          path: models/
-
-      - name: Prepare ort-sys cache directory
-        shell: bash
-        run: |
-          # Force XDG_CACHE_HOME to a writable path for ort-sys on the host
-          ORT_CACHE_DIR="${{ runner.temp }}/.cache"
-          mkdir -p "${ORT_CACHE_DIR}/ort.pyke.io"
-          echo "ORT_CACHE_DIR=${ORT_CACHE_DIR}" >> $GITHUB_ENV
-          echo "XDG_CACHE_HOME=${ORT_CACHE_DIR}" >> $GITHUB_ENV
-
-      - name: Cache ONNX Runtime binaries
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/.cache/ort.pyke.io
-          key: ort-cache-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ort-cache-${{ runner.os }}-${{ matrix.target }}-
-            ort-cache-${{ runner.os }}-
-
       - name: Build
         shell: bash
         run: |
           set -euxo pipefail
           if [ "${{ matrix.use_cross }}" = "true" ]; then
-            # CROSS_CONTAINER_OPTS injects env vars and volume mounts directly
-            # into the Docker container that cross uses — $GITHUB_ENV variables
-            # (XDG_CACHE_HOME etc.) do NOT propagate into the container otherwise.
-            export CROSS_CONTAINER_OPTS="\
-              --env XDG_CACHE_HOME=/tmp/.ort-cache \
-              --volume ${ORT_CACHE_DIR}:/tmp/.ort-cache"
             cross build --locked --release --features all --target ${{ matrix.target }}
           else
             cargo build --locked --release --features all --target ${{ matrix.target }}
@@ -182,11 +81,6 @@ jobs:
           cp LICENSE-APACHE bundle/
           cp LICENSE-MIT bundle/
           cp README.md bundle/
-          
-          # Include models directory if it exists
-          if [ -d "models" ]; then
-            cp -r models bundle/
-          fi
 
           mkdir -p dist
           if [ "${{ runner.os }}" = "Windows" ]; then
@@ -240,4 +134,3 @@ jobs:
             upload/tokuin-*.zip
             upload/checksums.txt
           generate_release_notes: true
-
