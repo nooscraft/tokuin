@@ -174,4 +174,17 @@ esac
 
 echo ""
 echo "Done! Run 'tokuin --help' to get started."
+echo ""
+
+# Set up embedding models if this build supports them (x86_64 Linux, Apple Silicon)
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if "$install_path" setup models 2>/dev/null; then
+  echo "✓ Embedding models set up successfully."
+else
+  echo "ℹ️  This build does not include embedding model support."
+  echo "   Compression quality scoring will use heuristic metrics."
+  echo "   For embedding support, build from source:"
+  echo "   cargo build --release --features all,compression-embeddings"
+fi
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
