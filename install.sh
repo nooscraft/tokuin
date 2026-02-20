@@ -4,18 +4,13 @@ set -euo pipefail
 
 REPO="nooscraft/tokuin"
 API_URL="https://api.github.com/repos/${REPO}/releases/latest"
-SKIP_MODELS=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --skip-models)
-      SKIP_MODELS=true
-      shift
-      ;;
     *)
       echo "Unknown option: $1" >&2
-      echo "Usage: $0 [--skip-models]" >&2
+      echo "Usage: $0" >&2
       exit 1
       ;;
   esac
@@ -170,25 +165,13 @@ echo "Installed tokuin to $install_path"
 case ":$PATH:" in
   *:"$install_dir":*) ;;
   *)
-    echo "Note: $install_dir is not on your PATH. Add it to use tokuin directly."
+    echo ""
+    echo "Note: $install_dir is not on your PATH."
+    echo "Add the following to your shell profile (~/.zshrc or ~/.bashrc):"
+    echo "  export PATH=\"$install_dir:\$PATH\""
     ;;
 esac
 
-echo "Done!"
-
-# Optionally setup embedding models
-if [ "$SKIP_MODELS" = false ]; then
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "Setting up embedding models..."
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  if "$install_path" setup models 2>&1; then
-    echo "✓ Models setup complete!"
-  else
-    echo "⚠️  Model setup failed or skipped. You can run 'tokuin setup models' later."
-  fi
-else
-  echo ""
-  echo "Skipping model setup. Run 'tokuin setup models' to download embedding models."
-fi
+echo ""
+echo "Done! Run 'tokuin --help' to get started."
 
