@@ -1,19 +1,9 @@
 [build.env]
-# Pass through environment variables for ort-sys
+# Pass through any env vars needed for cargo/ort that aren't handled via
+# CROSS_CONTAINER_OPTS in the workflow. XDG_CACHE_HOME is intentionally
+# NOT listed here because it's injected via CROSS_CONTAINER_OPTS with a
+# matching volume mount, ensuring the host path is actually accessible
+# inside the container.
 passthrough = [
-    "ORT_LIB_LOCATION",
-    "ORT_SKIP_DOWNLOAD",
-    "CARGO_HOME",
-]
-
-[target.aarch64-unknown-linux-gnu]
-# Mount the ort cache directory into the container
-# The container runs as root, so mount to /root
-volumes = [
-    "${HOME}/.cache:/root/.cache:rw",
-]
-
-[target.x86_64-unknown-linux-gnu]
-volumes = [
-    "${HOME}/.cache:/root/.cache:rw",
+    "CARGO_TERM_COLOR",
 ]

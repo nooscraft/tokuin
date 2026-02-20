@@ -130,12 +130,14 @@ jobs:
           name: embedding-models
           path: models/
 
-      - name: Prepare cache dirs for ort-sys
+      - name: Prepare ort-sys cache directory
         shell: bash
         run: |
-          echo "HOME=${HOME:-/home/runner}" >> $GITHUB_ENV
-          echo "XDG_CACHE_HOME=${{ runner.temp }}/.cache" >> $GITHUB_ENV
-          mkdir -p "${{ runner.temp }}/.cache"
+          # Force XDG_CACHE_HOME to a writable path for ort-sys on the host
+          ORT_CACHE_DIR="${{ runner.temp }}/.cache"
+          mkdir -p "${ORT_CACHE_DIR}/ort.pyke.io"
+          echo "ORT_CACHE_DIR=${ORT_CACHE_DIR}" >> $GITHUB_ENV
+          echo "XDG_CACHE_HOME=${ORT_CACHE_DIR}" >> $GITHUB_ENV
 
       - name: Cache ONNX Runtime binaries
         uses: actions/cache@v4
@@ -151,6 +153,12 @@ jobs:
         run: |
           set -euxo pipefail
           if [ "${{ matrix.use_cross }}" = "true" ]; then
+            # CROSS_CONTAINER_OPTS injects env vars and volume mounts directly
+            # into the Docker container that cross uses — $GITHUB_ENV variables
+            # (XDG_CACHE_HOME etc.) do NOT propagate into the container otherwise.
+            export CROSS_CONTAINER_OPTS="\
+              --env XDG_CACHE_HOME=/tmp/.ort-cache \
+              --volume ${ORT_CACHE_DIR}:/tmp/.ort-cache"
             cross build --locked --release --features all --target ${{ matrix.target }}
           else
             cargo build --locked --release --features all --target ${{ matrix.target }}
