@@ -73,6 +73,10 @@ pub struct Cli {
     #[arg(value_name = "FILE|TEXT")]
     pub input: Option<String>,
 
+    /// List all available models and exit
+    #[arg(long)]
+    pub models: bool,
+
     /// Model to use for tokenization (e.g., gpt-4, gpt-3.5-turbo)
     #[arg(short, long)]
     pub model: Option<String>,
@@ -583,6 +587,11 @@ impl Provider {
 impl Cli {
     /// Execute the CLI command.
     pub fn run(self) -> Result<(), AppError> {
+        // Handle --models flag early
+        if self.models {
+            return Self::list_models();
+        }
+
         match self.command {
             Some(Command::Estimate {
                 input,
@@ -767,6 +776,42 @@ impl Cli {
                 Self::run_estimate(estimate_args)
             }
         }
+    }
+
+    /// List all available models.
+    fn list_models() -> Result<(), AppError> {
+        let registry = ModelRegistry::new();
+        let mut models: Vec<_> = registry.list_models().into_iter().collect();
+
+        // Sort by provider, then by model name
+        models.sort_by(|a, b| (&a.provider, &a.model).cmp(&(&b.provider, &b.model)));
+
+        // Deduplicate by model name (registry stores multiple keys per model)
+        models.dedup_by(|a, b| a.model == b.model);
+
+        println!("Available models:");
+        println!();
+
+        let mut current_provider = String::new();
+        for info in models {
+            if info.provider != current_provider {
+                if !current_provider.is_empty() {
+                    println!();
+                }
+                println!("{}:", info.provider);
+                current_provider = info.provider.clone();
+            }
+            
+            let pricing = match (info.input_price, info.output_price) {
+                (Some(input), Some(output)) => {
+                    format!("  (${:.4}/1K in, ${:.4}/1K out)", input, output)
+                }
+                _ => String::new(),
+            };
+            println!("  {}{}", info.model, pricing);
+        }
+
+        Ok(())
     }
 
     /// Run estimate command (existing functionality).
