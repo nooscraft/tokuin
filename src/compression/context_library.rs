@@ -134,7 +134,7 @@ impl ContextLibraryManager {
     pub fn sort_by_frequency(&mut self) {
         self.library
             .patterns
-            .sort_by(|a, b| b.frequency.cmp(&a.frequency));
+            .sort_by_key(|p| std::cmp::Reverse(p.frequency));
     }
 
     /// Get library statistics
@@ -142,11 +142,7 @@ impl ContextLibraryManager {
     pub fn statistics(&self) -> LibraryStatistics {
         let total_patterns = self.library.patterns.len();
         let total_tokens: usize = self.library.patterns.iter().map(|p| p.avg_tokens).sum();
-        let avg_tokens_per_pattern = if total_patterns > 0 {
-            total_tokens / total_patterns
-        } else {
-            0
-        };
+        let avg_tokens_per_pattern = total_tokens.checked_div(total_patterns).unwrap_or(0);
 
         let mut category_counts = std::collections::HashMap::new();
         for pattern in &self.library.patterns {

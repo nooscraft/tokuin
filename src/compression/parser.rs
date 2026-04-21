@@ -294,12 +294,10 @@ impl HieraticParser {
                         )));
                     }
                 }
-                HieraticSection::Task { content } => {
-                    if content.is_empty() {
-                        return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
-                            "TASK section cannot be empty".to_string(),
-                        )));
-                    }
+                HieraticSection::Task { content } if content.is_empty() => {
+                    return Err(AppError::Parse(crate::error::ParseError::InvalidFormat(
+                        "TASK section cannot be empty".to_string(),
+                    )));
                 }
                 _ => {}
             }
