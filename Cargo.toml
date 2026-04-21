@@ -33,7 +33,7 @@ tokio = { version = "1.0", features = ["full"], optional = true }
 notify = { version = "5.0", optional = true }
 
 # Markdown parsing
-pulldown-cmark = { version = "0.9", optional = true }
+pulldown-cmark = { version = "0.13", optional = true }
 
 # SentencePiece for Gemini and other models (optional, requires CMake)
 # Note: Gemini works without this using approximation, but for exact counts install CMake:
