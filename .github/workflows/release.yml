@@ -53,7 +53,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -73,7 +73,7 @@ jobs:
 
       - name: Cache ONNX Runtime binaries
         if: ${{ contains(matrix.features, 'compression-embeddings') && !matrix.use_cross }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/.cache/ort.pyke.io
           key: ort-cache-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
@@ -120,7 +120,7 @@ jobs:
           rm -rf bundle
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}
           path: dist/
@@ -132,10 +132,10 @@ jobs:
     needs: build
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
 
@@ -151,7 +151,7 @@ jobs:
           sha256sum tokuin-* > checksums.txt
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: Tokuin ${{ github.ref_name }}
