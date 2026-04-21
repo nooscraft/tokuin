@@ -140,12 +140,11 @@ impl PromptScanner {
         if let Some(ext) = path.extension() {
             let ext_lower = ext.to_string_lossy().to_lowercase();
             match ext_lower.as_str() {
-                "json" => {
+                "json"
                     if content.trim_start().starts_with('{')
-                        || content.trim_start().starts_with('[')
-                    {
-                        return FileFormat::Json;
-                    }
+                        || content.trim_start().starts_with('[') =>
+                {
+                    return FileFormat::Json;
                 }
                 "md" | "markdown" => return FileFormat::Markdown,
                 "yaml" | "yml" => return FileFormat::Yaml,
