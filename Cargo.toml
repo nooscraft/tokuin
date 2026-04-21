@@ -1,6 +1,6 @@
 [package]
 name = "tokuin"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Tokuin Contributors"]
 license = "MIT OR Apache-2.0"
@@ -14,10 +14,10 @@ categories = ["command-line-utilities", "development-tools"]
 clap = { version = "4.5", features = ["derive"] }
 
 # Error handling
-thiserror = "1.0"
+thiserror = "2.0"
 
 # OpenAI tokenization
-tiktoken-rs = { version = "0.6", optional = true }
+tiktoken-rs = { version = "0.11", optional = true }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -33,7 +33,7 @@ tokio = { version = "1.0", features = ["full"], optional = true }
 notify = { version = "5.0", optional = true }
 
 # Markdown parsing
-pulldown-cmark = { version = "0.9", optional = true }
+pulldown-cmark = { version = "0.13", optional = true }
 
 # SentencePiece for Gemini and other models (optional, requires CMake)
 # Note: Gemini works without this using approximation, but for exact counts install CMake:
@@ -47,7 +47,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 async-trait = { version = "0.1", optional = true }
 
 # Progress bars for load testing
-indicatif = { version = "0.17", optional = true }
+indicatif = { version = "0.18", optional = true }
 
 # Latency histograms for metrics
 hdrhistogram = { version = "7.5", optional = true }
@@ -78,23 +78,23 @@ uuid = { version = "1.7", optional = true, features = ["v4", "serde"] }
 # On Linux: use rustls-tls to avoid OpenSSL dependency
 # On macOS/Windows: use native-tls (Secure Transport/SChannel, no OpenSSL)
 # Array operations for ONNX tensors
-ndarray = { version = "0.15", optional = true }
+ndarray = { version = "0.17", optional = true }
 # CPU detection for ONNX thread configuration
 num_cpus = { version = "1.16", optional = true }
 
 # Tokenizer for embeddings
-tokenizers = { version = "0.15", optional = true }
+tokenizers = { version = "0.22", optional = true }
 
 # Directory utilities for model caching
-dirs = { version = "5.0", optional = true }
+dirs = { version = "6.0", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Linux: use rustls to avoid OpenSSL
-ort = { version = "2.0.0-rc.11", default-features = false, features = ["download-binaries", "tls-rustls", "ndarray", "copy-dylibs", "std"], optional = true }
+ort = { version = "2.0.0-rc.12", default-features = false, features = ["download-binaries", "tls-rustls", "ndarray", "copy-dylibs", "std"], optional = true }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 # macOS/Windows: use native TLS (Secure Transport/SChannel, not OpenSSL)
-ort = { version = "2.0.0-rc.11", optional = true }
+ort = { version = "2.0.0-rc.12", optional = true }
 
 [features]
 default = ["openai"]
@@ -115,7 +115,7 @@ all = ["openai", "watch", "markdown", "gemini", "load-test", "compression"]
 [dev-dependencies]
 # Testing
 tempfile = "3.8"
-httpmock = "0.7"
+httpmock = "0.8"
 
 [lib]
 name = "tokuin"

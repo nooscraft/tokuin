@@ -2,7 +2,7 @@
 #[cfg(feature = "openai")]
 use crate::error::TokenizerError;
 use crate::tokenizers::Tokenizer;
-use tiktoken_rs::{get_bpe_from_model, CoreBPE};
+use tiktoken_rs::{bpe_for_model, CoreBPE};
 
 /// OpenAI tokenizer implementation.
 ///
@@ -50,7 +50,7 @@ impl OpenAITokenizer {
     /// # Ok::<(), tokuin::error::TokenizerError>(())
     /// ```
     pub fn new(model: &str) -> Result<Self, TokenizerError> {
-        let bpe = get_bpe_from_model(model).map_err(|e| {
+        let bpe = bpe_for_model(model).map_err(|e| {
             TokenizerError::InitializationFailed(format!(
                 "Failed to initialize tokenizer for model '{}': {}",
                 model, e
@@ -69,7 +69,7 @@ impl OpenAITokenizer {
         };
 
         Ok(Self {
-            bpe,
+            bpe: bpe.clone(),
             model_name: model.to_string(),
             input_price,
             output_price,
@@ -90,7 +90,7 @@ impl Tokenizer for OpenAITokenizer {
     fn decode(&self, tokens: &[usize]) -> Result<String, TokenizerError> {
         let tokens_u32: Vec<u32> = tokens.iter().map(|&t| t as u32).collect();
         self.bpe
-            .decode(tokens_u32)
+            .decode(&tokens_u32)
             .map_err(|e| TokenizerError::DecodingFailed(e.to_string()))
     }
 
