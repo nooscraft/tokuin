@@ -40,7 +40,7 @@ pulldown-cmark = { version = "0.13", optional = true }
 #   macOS: brew install cmake
 #   Linux: apt-get install cmake (or yum install cmake)
 #   Windows: Download from https://cmake.org/download/
-sentencepiece = { version = "0.12", optional = true }
+sentencepiece = { version = "0.13", optional = true }
 
 # HTTP client for load testing and model downloading
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "blocking"], optional = true }
