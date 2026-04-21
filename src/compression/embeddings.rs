@@ -327,7 +327,7 @@ mod onnx_impl {
             use ort::session::Session;
 
             // Create session builder with optimization
-            let builder = Session::builder().map_err(|e| {
+            let mut builder = Session::builder().map_err(|e| {
                 AppError::Parse(crate::error::ParseError::InvalidFormat(format!(
                     "Failed to create ONNX session builder: {}",
                     e

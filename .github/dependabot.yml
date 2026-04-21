@@ -5,9 +5,6 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "rust"
     commit-message:
       prefix: "cargo"
       include: "scope"
@@ -24,9 +21,6 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "github-actions"
     commit-message:
       prefix: "ci"
       include: "scope"
