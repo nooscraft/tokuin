@@ -115,7 +115,7 @@ all = ["openai", "watch", "markdown", "gemini", "load-test", "compression"]
 [dev-dependencies]
 # Testing
 tempfile = "3.8"
-httpmock = "0.7"
+httpmock = "0.8"
 
 [lib]
 name = "tokuin"
