@@ -78,7 +78,7 @@ uuid = { version = "1.7", optional = true, features = ["v4", "serde"] }
 # On Linux: use rustls-tls to avoid OpenSSL dependency
 # On macOS/Windows: use native-tls (Secure Transport/SChannel, no OpenSSL)
 # Array operations for ONNX tensors
-ndarray = { version = "0.15", optional = true }
+ndarray = { version = "0.17", optional = true }
 # CPU detection for ONNX thread configuration
 num_cpus = { version = "1.16", optional = true }
 
