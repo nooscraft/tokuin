@@ -47,7 +47,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 async-trait = { version = "0.1", optional = true }
 
 # Progress bars for load testing
-indicatif = { version = "0.17", optional = true }
+indicatif = { version = "0.18", optional = true }
 
 # Latency histograms for metrics
 hdrhistogram = { version = "7.5", optional = true }
