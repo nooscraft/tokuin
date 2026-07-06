@@ -1,12 +1,23 @@
-Extract data from the following document and return it as JSON.
+Extract structured information from the following earnings report document and return it as a JSON object. The document contains quarterly financial results for a publicly traded technology company, including revenue breakdowns by product segment, operating expenses, net income, earnings per share, and forward-looking guidance statements from the CEO and CFO.
 
 Required JSON Schema:
 {
-  "title": "Document Analysis",
+  "title": "Quarterly Earnings Analysis",
   "type": "object",
   "properties": {
+    "company_name": {"type": "string"},
+    "reporting_period": {"type": "string"},
     "summary": {"type": "string"},
     "key_points": {"type": "array", "items": {"type": "string"}},
+    "financial_metrics": {
+      "type": "object",
+      "properties": {
+        "total_revenue": {"type": "number"},
+        "net_income": {"type": "number"},
+        "earnings_per_share": {"type": "number"},
+        "year_over_year_growth": {"type": "number"}
+      }
+    },
     "entities": {
       "type": "array",
       "items": {
@@ -17,10 +28,11 @@ Required JSON Schema:
           "confidence": {"type": "number"}
         }
       }
-    }
+    },
+    "guidance_statements": {"type": "array", "items": {"type": "string"}}
   },
-  "required": ["summary", "key_points"]
+  "required": ["company_name", "reporting_period", "summary", "key_points", "financial_metrics"]
 }
 
 Document:
-[Document content will be provided here]
+[Q3 2024 Earnings Report content will be provided here. Include all tables, footnotes, and management discussion sections.]

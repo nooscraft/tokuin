@@ -1,12 +1,18 @@
-Extract the following information from the document:
-- Full name of the person
-- Date of birth
-- Email address
-- Phone number
+Extract the following information from the document provided below. The document is a patient intake form from a medical clinic that contains multiple sections including personal demographics, insurance information, medical history, current medications, allergies, and emergency contacts. You need to carefully parse each section and identify all relevant fields.
+
+Required fields to extract:
+- Full legal name of the patient (first, middle, last)
+- Date of birth in MM/DD/YYYY format
+- Current residential address including street, city, state, and ZIP code
+- Primary phone number and email address
+- Insurance provider name and policy number
+- Emergency contact name, relationship, and phone number
+- List of current medications with dosages
+- Known allergies or adverse reactions
 
 Response Format:
-Name::DateOfBirth::Email::Phone
+You must output your findings using the exact format below with fields separated by double colons (::). If any field cannot be located or is not applicable, use "N/A" as the value. The separator between fields must ALWAYS be :: (double colon) with no spaces around it.
 
-If you are unable to find any field, use "N/A" for that field.
-The separator is ALWAYS :: (double colon).
-Do NOT output any additional text or explanation.
+Name::DateOfBirth::Address::Phone::Email::InsuranceProvider::PolicyNumber::EmergencyContact::Allergies::Medications
+
+Do NOT output any additional text, explanations, or commentary outside of this structured format. Maintain accuracy and do not guess or infer information that is not explicitly stated in the document.
