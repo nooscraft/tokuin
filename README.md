@@ -74,6 +74,70 @@ cargo build --release --features all,compression-embeddings
 ./target/release/tokuin setup models
 ```
 
+### MCP Wrapper Integration (Claude, Codex, Devin)
+
+If you want agent CLIs to call `tokuin` as an MCP tool, create a small stdio MCP wrapper and register it in each client.
+
+1. Install `tokuin` on your `PATH` (or use `./target/release/tokuin` in the wrapper command):
+
+```bash
+cargo build --release --features all
+install -m 755 ./target/release/tokuin ~/.local/bin/tokuin
+```
+
+2. Create `~/.local/bin/tokuin-mcp`:
+
+```python
+#!/usr/bin/env python3
+import shlex
+import subprocess
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("tokuin")
+
+@mcp.tool()
+def tokuin_version() -> str:
+    p = subprocess.run(["tokuin", "--version"], capture_output=True, text=True, check=True)
+    return p.stdout.strip()
+
+@mcp.tool()
+def tokuin_run(args: str, stdin: str | None = None, timeout_seconds: int = 60) -> str:
+    cmd = ["tokuin", *shlex.split(args)]
+    p = subprocess.run(cmd, input=stdin, capture_output=True, text=True, timeout=timeout_seconds)
+    if p.returncode != 0:
+        raise RuntimeError(p.stderr.strip() or f"tokuin exited with {p.returncode}")
+    return p.stdout.strip()
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+```bash
+chmod +x ~/.local/bin/tokuin-mcp
+```
+
+3. Register the MCP server:
+
+```bash
+claude mcp add --scope user tokuin -- ~/.local/bin/tokuin-mcp
+codex mcp add tokuin -- ~/.local/bin/tokuin-mcp
+devin mcp add --scope user tokuin -- ~/.local/bin/tokuin-mcp
+```
+
+4. Verify registration:
+
+```bash
+claude mcp get tokuin
+codex mcp get tokuin
+devin mcp get tokuin
+```
+
+If a one-shot Codex run cancels the tool call, re-run with:
+
+```bash
+codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check --cd /path/to/repo "Call the tokuin MCP tool named tokuin_version exactly once."
+```
+
 ---
 
 ## 📖 Usage

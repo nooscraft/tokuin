@@ -92,7 +92,7 @@ def count_tokens(prompt_file: Path, tokuin_bin: str, model: str = "gpt-4") -> in
         )
         if result.returncode == 0:
             data = json.loads(result.stdout)
-            return data.get("total_tokens", 0)
+            return data.get("tokens", data.get("total_tokens", 0))
     except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, Exception):
         pass
     return 0

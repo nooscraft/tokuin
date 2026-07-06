@@ -1,32 +1,44 @@
-Document the following API endpoint:
+Document the following REST API endpoint for a user management service. This endpoint is part of a larger identity and access management system that supports multi-tenant SaaS applications. The endpoint handles user creation with role-based access control and integrates with an event streaming platform for audit logging.
 
-Endpoint: POST /api/v1/users
-Authentication: Bearer token required
-Request Body:
+Endpoint Details:
+- Method: POST
+- Path: /api/v1/users
+- Authentication: Bearer token required (JWT with 'users:write' scope)
+- Content-Type: application/json
+- Rate Limit: 100 requests per minute per API key
+
+Request Body Schema:
 {
-  "name": "string (required)",
-  "email": "string (required, valid email format)",
-  "role": "string (optional, one of: admin, user, guest)"
+  "name": "string (required, 2-100 characters)",
+  "email": "string (required, valid email format, unique per tenant)",
+  "role": "string (optional, one of: admin, user, guest, default: user)",
+  "metadata": {"type": "object", "optional": true}
 }
 
-Response Codes:
-- 201: User created successfully
-- 400: Invalid request data
-- 401: Unauthorized
-- 409: Email already exists
+Response Codes and Semantics:
+- 201: User created successfully, returns complete user object
+- 400: Invalid request data (validation errors in response body)
+- 401: Unauthorized (missing or invalid bearer token)
+- 403: Forbidden (insufficient scope for operation)
+- 409: Email already exists within the tenant
+- 429: Rate limit exceeded
 
-Response Body (201):
+Response Body (201 Created):
 {
   "id": "uuid",
   "name": "string",
   "email": "string",
   "role": "string",
-  "created_at": "ISO 8601 timestamp"
+  "created_at": "ISO 8601 timestamp",
+  "tenant_id": "uuid",
+  "status": "string (active, suspended, pending)"
 }
 
 Provide comprehensive documentation including:
-1. Endpoint description
-2. Authentication requirements
-3. Request/response examples
-4. Error handling
-5. Rate limiting information
+1. Endpoint description and business purpose
+2. Authentication and authorization requirements
+3. Complete request and response examples with curl commands
+4. Error handling with all possible error codes and messages
+5. Rate limiting information and retry recommendations
+6. Webhook events emitted on user creation
+7. Audit logging behavior and compliance considerations
