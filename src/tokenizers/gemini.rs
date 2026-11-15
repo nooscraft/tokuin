@@ -56,7 +56,7 @@ impl GeminiTokenizer {
                 // $0.075 per 1M input, $0.30 per 1M output
                 (Some(0.000075), Some(0.0003))
             }
-            _ => (None, None),
+            _ => crate::tokenizers::table_price_per_1k(model),
         };
 
         Ok(Self {
@@ -91,7 +91,7 @@ impl GeminiTokenizer {
         let (input_price, output_price) = match model {
             "gemini-2.5-pro" | "gemini-pro" => (Some(0.00125), Some(0.01)),
             "gemini-2.5-flash" | "gemini-flash" => (Some(0.000075), Some(0.0003)),
-            _ => (None, None),
+            _ => crate::tokenizers::table_price_per_1k(model),
         };
 
         Ok(Self {

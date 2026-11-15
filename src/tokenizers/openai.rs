@@ -65,7 +65,7 @@ impl OpenAITokenizer {
             }
             "gpt-3.5-turbo" | "gpt-3.5-turbo-0301" => (Some(0.0015), Some(0.002)),
             "gpt-3.5-turbo-16k" => (Some(0.003), Some(0.004)),
-            _ => (None, None),
+            _ => crate::tokenizers::table_price_per_1k(model),
         };
 
         Ok(Self {
@@ -164,5 +164,18 @@ mod tests {
         let tokenizer = OpenAITokenizer::new("gpt-4").unwrap();
         assert_eq!(tokenizer.input_price_per_1k(), Some(0.03));
         assert_eq!(tokenizer.output_price_per_1k(), Some(0.06));
+    }
+
+    #[cfg(feature = "llm-prices")]
+    #[test]
+    fn test_pricing_from_table() {
+        let tokenizer = OpenAITokenizer::new("gpt-4o").unwrap();
+        let p = llm_prices::lookup("gpt-4o").unwrap();
+        assert_eq!(tokenizer.input_price_per_1k(), p.input.map(|v| v / 1000.0));
+        assert_eq!(
+            tokenizer.output_price_per_1k(),
+            p.output.map(|v| v / 1000.0)
+        );
+        assert!(tokenizer.input_price_per_1k().is_some());
     }
 }
