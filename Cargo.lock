@@ -1339,6 +1339,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6373607a59f0be73a39b6fe456b8192fcc3585f602af20751600e974dd455e77"
 
 [[package]]
+name = "llm-prices"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9606d5d2a074a2de43ae1e9d76ffdb95e5ffb870533b89caccaa4aa2d4abf2d6"
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2648,6 +2654,7 @@ dependencies = [
  "hdrhistogram",
  "httpmock",
  "indicatif",
+ "llm-prices",
  "ndarray",
  "notify",
  "num_cpus",

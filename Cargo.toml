@@ -88,6 +88,9 @@ tokenizers = { version = "0.22", optional = true }
 # Directory utilities for model caching
 dirs = { version = "6.0", optional = true }
 
+# Dated price table for models without a built-in rate (no dependencies)
+llm-prices = { version = "1.1", optional = true }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 # Linux: use rustls to avoid OpenSSL
 ort = { version = "2.0.0-rc.12", default-features = false, features = ["download-binaries", "tls-rustls", "ndarray", "copy-dylibs", "std"], optional = true }
@@ -97,7 +100,7 @@ ort = { version = "2.0.0-rc.12", default-features = false, features = ["download
 ort = { version = "2.0.0-rc.12", optional = true }
 
 [features]
-default = ["openai"]
+default = ["openai", "llm-prices"]
 openai = ["tiktoken-rs"]
 watch = ["notify", "tokio"]
 markdown = ["pulldown-cmark"]
@@ -110,7 +113,7 @@ compression-embeddings = ["compression", "tokenizers", "dirs", "ort", "ndarray",
 # `all` intentionally excludes `compression-embeddings`: ort's prebuilt ONNX Runtime
 # binaries are incompatible with cross-compilation and multiple platform toolchains.
 # Build with --features compression-embeddings explicitly on a native host for embedding support.
-all = ["openai", "watch", "markdown", "gemini", "load-test", "compression"]
+all = ["openai", "watch", "markdown", "gemini", "load-test", "compression", "llm-prices"]
 
 [dev-dependencies]
 # Testing
